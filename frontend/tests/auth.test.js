@@ -135,7 +135,6 @@ describe('auth module', () => {
   });
 
   it('clears token and shows session expired on 401', async () => {
-    localStorage.setItem('id_token', 'expired-token');
     await import('../js/auth.js');
     const { navigate } = await import('../js/main.js');
 
@@ -147,6 +146,9 @@ describe('auth module', () => {
 
     navigate('#/login');
     await new Promise(r => setTimeout(r, 20));
+
+    // Set token after navigating to login so auth guard doesn't redirect away
+    localStorage.setItem('id_token', 'expired-token');
 
     document.getElementById('login-email').value = 'a@b.com';
     document.getElementById('login-password').value = 'password';

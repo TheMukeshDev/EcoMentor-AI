@@ -21,6 +21,7 @@ describe('coach module', () => {
     vi.restoreAllMocks();
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
     window.location.hash = '';
+    localStorage.setItem('id_token', 'test-token');
   });
 
   it('renders coach page with mission, tips and chat', async () => {

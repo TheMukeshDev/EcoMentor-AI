@@ -1,8 +1,11 @@
 import json
 import re
+from typing import Any
+
+from app.services.carbon_service import estimate_gemini_carbon as estimate_carbon
 
 
-def sanitize_input(value, max_length=200):
+def sanitize_input(value: Any, max_length: int = 200) -> str:
     if not isinstance(value, str):
         value = str(value)
     value = value[:max_length]
@@ -11,46 +14,39 @@ def sanitize_input(value, max_length=200):
     return value.strip()
 
 
-def estimate_carbon(data):
-    transport = data.get("transport", "walking")
-    distance = float(data.get("distance", 0))
-    food_type = data.get("food_type", "vegetarian")
-    ac_usage = data.get("ac_usage", "none")
-    plastic_waste = float(data.get("plastic_waste", 0))
-    transport_emissions = {
-        "walking": 0,
-        "bicycle": 0,
-        "bus": 0.089,
-        "metro": 0.041,
-        "car": 0.171,
-        "plane": 0.255,
-    }.get(transport, 0.089) * distance
-    food_emissions = {"vegan": 1.5, "vegetarian": 1.7, "non_vegetarian": 2.5}.get(
-        food_type, 1.7
-    )
-    ac_emissions = {"none": 0, "1-2": 0.5, "3-5": 1.2, "6+": 2.0}.get(ac_usage, 0)
-    waste_emissions = plastic_waste * 0.5
-    return round(
-        transport_emissions + food_emissions + ac_emissions + waste_emissions, 2
-    )
-
-
 class PromptService:
     def recommendations(self, data):
+        trend = data.get("score_trend", "stable")
+        best = sanitize_input(data.get("best_category", "transport"))
+        worst = sanitize_input(data.get("worst_category", "transport"))
+        level = sanitize_input(data.get("level", "Beginner"))
+        streak = data.get("streak", 0)
+
+        focus_area = worst if trend in ("stable", "declining") else best
+        focus_hint = (
+            f"Focus on reducing {worst} (their highest impact area)"
+            if focus_area == worst
+            else f"Suggest ways to maintain their good habits in {best}"
+        )
+
         prompt = f"""You are an AI sustainability coach. Generate 3 personalized carbon reduction recommendations based on this user data:
 - Carbon score: {data.get("score", 0)}/100
 - Transport: {sanitize_input(data.get("transport", "unknown"))}
 - Food: {sanitize_input(data.get("food", "unknown"))}
 - AC usage: {sanitize_input(data.get("ac_usage", "unknown"))}
-- Level: {sanitize_input(data.get("level", "Beginner"))}
-- Streak: {data.get("streak", 0)} days
+- Level: {level}
+- Streak: {streak} days
 - Weekly average: {data.get("weekly_avg", 0)}
+- Score trend: {trend}
+- Best area: {best}
+- Area to improve: {worst}
 
 Rules:
 - Each tip under 80 characters
 - Focus on practical, college-student-friendly actions
 - If user is Beginner, suggest simple entry-level actions
 - If user has high streak or advanced level, suggest more impactful changes
+- {focus_hint}
 - Return ONLY valid JSON array of strings
 
 Example:
@@ -130,24 +126,48 @@ Rules:
             for msg in conversation_history[-6:]:
                 role = msg.get("role", "user")
                 content = sanitize_input(msg.get("content", ""), 500)
-                history_lines.append(f"{role}: {content}")
+                if role == "system":
+                    history_lines.append(f"[{content}]")
+                else:
+                    history_lines.append(f"{role}: {content}")
             history_text = "Recent conversation:\n" + "\n".join(history_lines) + "\n"
 
+        trend = user_context.get("score_trend", "stable")
+        best = user_context.get("best_category", "N/A")
+        worst = user_context.get("worst_category", "N/A")
+        level = sanitize_input(user_context.get("level", "Beginner"))
+        streak = user_context.get("streak", 0)
+        trend_note = ""
+        if trend == "improving":
+            trend_note = "The user is improving — keep them motivated and reinforce their good habits."
+        elif trend == "declining":
+            trend_note = "The user's scores have been declining — be encouraging and suggest small, easy wins."
+
+        tone = "supportive and encouraging"
+        if level == "Planet Hero" and streak > 20:
+            tone = "concise and challenge-oriented, assume they know the basics"
+        elif level == "Eco Warrior" and streak > 7:
+            tone = "confident and action-oriented, suggest intermediate optimizations"
+
         context = f"""User context:
-- Level: {sanitize_input(user_context.get("level", "Beginner"))}
-- Streak: {user_context.get("streak", 0)} days
+- Level: {level}
+- Streak: {streak} days
 - Weekly average carbon score: {user_context.get("weekly_avg", 0)}
 - Current score: {user_context.get("current_score", 0)}
 - Activities logged: {user_context.get("activity_count", 0)}
+- Score trend: {trend}
+- Best category: {best} (lowest carbon impact)
+- Area to improve: {worst} (highest carbon impact)
 """
 
         prompt = f"""You are an AI sustainability coach named EcoMentor. You help users understand and reduce their carbon footprint.
 
 {context}
 {history_text}
+Coaching tone: {tone}. {trend_note}
 User message: {sanitize_input(user_message, 1000)}
 
-Respond conversationally and helpfully. Keep responses under 150 words. If the user asks about their data, reference the context above. If asked something outside sustainability, gently steer back. Return ONLY a JSON object with a single "response" field containing your reply."""
+Respond conversationally and helpfully. Keep responses under 150 words. Reference the user's trend and categories when relevant. If asked something outside sustainability, gently steer back. Return ONLY a JSON object with a single "response" field containing your reply."""
 
         return prompt
 

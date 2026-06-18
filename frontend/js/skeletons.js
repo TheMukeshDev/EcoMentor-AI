@@ -1,29 +1,16 @@
 export function dashboardSkeleton() {
   return `
-    <div class="dashboard-header">
-      <div class="skeleton" style="width:200px;height:32px;border-radius:8px"></div>
-      <div class="skeleton" style="width:140px;height:36px;border-radius:20px"></div>
-    </div>
-    <div class="card-grid">
-      ${Array(4).fill(`
-        <div class="skeleton-card">
-          <div class="skeleton-line" style="width:60%"></div>
-          <div class="skeleton" style="width:80px;height:36px;border-radius:8px;margin-bottom:8px"></div>
-          <div class="skeleton-line" style="width:40%"></div>
-        </div>
-      `).join('')}
-    </div>
-    <div class="skeleton-card">
-      <div class="skeleton-line" style="width:40%"></div>
-      <div class="skeleton-block"></div>
-    </div>
-    <div class="card-grid">
-      ${Array(2).fill(`
-        <div class="skeleton-card">
-          <div class="skeleton-line" style="width:50%"></div>
-          <div class="skeleton-line" style="width:80%"></div>
-        </div>
-      `).join('')}
+    <div class="dashboard-skeleton">
+      <div class="skeleton-hero"></div>
+      <div class="skeleton-grid">
+        ${Array(4).fill('<div class="skeleton-grid-item"></div>').join('')}
+      </div>
+      <div class="skeleton-section"></div>
+      <div class="skeleton-grid">
+        ${Array(3).fill('<div class="skeleton-grid-item"></div>').join('')}
+      </div>
+      <div class="skeleton-section"></div>
+      <div class="skeleton-section"></div>
     </div>
   `;
 }

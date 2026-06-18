@@ -8,6 +8,7 @@ from pydantic import ValidationError
 import json as json_lib
 
 from app.middleware.auth_middleware import require_auth
+from app.middleware.csrf import csrf_protect
 from app.utils.responses import success_response, error_response
 from app.utils.rate_limiter import rate_limiter
 from app.extensions import db
@@ -38,6 +39,34 @@ _ai_service = AIService(
 )
 
 
+def _compute_trend(scores):
+    if len(scores) < 2:
+        return "stable"
+    window = scores[-3:] if len(scores) >= 3 else scores
+    if window[-1] < window[0]:
+        return "improving"
+    if window[-1] > window[0]:
+        return "declining"
+    return "stable"
+
+
+def _best_worst_category(week_entries):
+    totals = {}
+    counts = {}
+    for e in week_entries:
+        for cat in ("transport", "electricity", "food", "waste"):
+            val = e.get(cat, 0)
+            if val:
+                totals[cat] = totals.get(cat, 0) + val
+                counts[cat] = counts.get(cat, 0) + 1
+    avgs = {c: (totals[c] / counts[c] if counts.get(c) else 0) for c in totals}
+    if not avgs:
+        return "transport", "transport"
+    worst = max(avgs, key=avgs.get)
+    best = min(avgs, key=avgs.get)
+    return best, worst
+
+
 def _build_user_context(user_id):
     user = _user_repo.get(user_id) or {}
     today = datetime.now(timezone.utc)
@@ -48,6 +77,7 @@ def _build_user_context(user_id):
     scores = [e.get("carbon_score", 0) for e in week_entries]
     weekly_avg = round(sum(scores) / len(scores), 2) if scores else 0
     activities = _activity_repo.find_by_user_id(user_id)
+    best_cat, worst_cat = _best_worst_category(week_entries)
 
     return {
         "level": user.get("level", "Beginner"),
@@ -55,6 +85,10 @@ def _build_user_context(user_id):
         "weekly_avg": weekly_avg,
         "current_score": scores[-1] if scores else 0,
         "activity_count": len(activities),
+        "score_trend": _compute_trend(scores),
+        "best_category": best_cat,
+        "worst_category": worst_cat,
+        "score_history": scores[-7:] if scores else [],
         "weekly_data": {
             "transport_avg": _avg_field(week_entries, "transport"),
             "electricity_avg": _avg_field(week_entries, "electricity"),
@@ -71,6 +105,7 @@ def _avg_field(entries, field):
 
 @ai_bp.route("/recommendations", methods=["POST"])
 @require_auth
+@csrf_protect
 @rate_limiter.limit(scope="user", capacity=30, refill_rate=1)
 def get_recommendations():
     try:
@@ -87,6 +122,9 @@ def get_recommendations():
         "level": context["level"],
         "streak": context["streak"],
         "weekly_avg": context["weekly_avg"],
+        "score_trend": context["score_trend"],
+        "best_category": context["best_category"],
+        "worst_category": context["worst_category"],
     }
     result = _ai_service.get_recommendations(g.user_id, data)
     if result is None:
@@ -130,6 +168,7 @@ def get_daily_mission():
 
 @ai_bp.route("/chat", methods=["POST"])
 @require_auth
+@csrf_protect
 @rate_limiter.limit(scope="user", capacity=30, refill_rate=1)
 def chat():
     try:
@@ -153,6 +192,7 @@ def get_chat_history():
 
 @ai_bp.route("/chat/clear", methods=["POST"])
 @require_auth
+@csrf_protect
 def clear_chat():
     _ai_service.clear_conversation(g.user_id)
     return success_response({"message": "Conversation cleared"})
@@ -160,6 +200,7 @@ def clear_chat():
 
 @ai_bp.route("/what-if", methods=["POST"])
 @require_auth
+@csrf_protect
 @rate_limiter.limit(scope="user", capacity=10, refill_rate=1)
 def whats_if():
     try:
@@ -186,6 +227,7 @@ def whats_if():
 
 @ai_bp.route("/feedback", methods=["POST"])
 @require_auth
+@csrf_protect
 @rate_limiter.limit(scope="user", capacity=20, refill_rate=1)
 def feedback():
     try:
@@ -202,8 +244,23 @@ def feedback():
     return success_response(result)
 
 
+def _save_stream_conversation(user_id, user_message, response_parts):
+    text = "".join(response_parts)
+    now = datetime.now(timezone.utc).isoformat()
+    history = _ai_service.get_conversation_history(user_id)
+    _ai_service._summarize_and_compact(user_id)
+    history = _ai_service.get_conversation_history(user_id)
+    history.append({"role": "user", "content": user_message, "timestamp": now})
+    history.append({"role": "assistant", "content": text, "timestamp": now})
+    if len(history) > 50:
+        history = history[-50:]
+    _ai_service._conversations[user_id] = history
+    _ai_service._persist_conversation(user_id, history)
+
+
 @ai_bp.route("/chat/stream", methods=["POST"])
 @require_auth
+@csrf_protect
 @rate_limiter.limit(scope="user", capacity=20, refill_rate=1)
 def chat_stream():
     data = request.get_json(silent=True) or {}
@@ -219,20 +276,34 @@ def chat_stream():
 
     context = _build_user_context(g.user_id)
     history = _ai_service.get_conversation_history(g.user_id)
-    prompt = PromptService().chat_response(message, context, history)
 
+    contents = []
+    for msg in history[-20:]:
+        raw_role = msg.get("role", "user")
+        gemini_role = "model" if raw_role in ("assistant", "system") else "user"
+        contents.append(
+            {"role": gemini_role, "parts": [{"text": msg.get("content", "")}]}
+        )
+    contents.append({"role": "user", "parts": [{"text": message}]})
+
+    system_prompt = "You are EcoMentor, an AI sustainability coach. Help users understand and reduce their carbon footprint. Respond conversationally and helpfully. Keep responses under 150 words."
     url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse"
     headers = {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": api_key,
     }
     payload = {
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.3, "maxOutputTokens": 512},
+        "system_instruction": {"parts": [{"text": system_prompt}]},
+        "contents": contents,
+        "generationConfig": {"temperature": 0.3, "maxOutputTokens": 512, "seed": 42},
     }
+
+    full_response = []
 
     def generate():
         import requests as http_requests
+
+        nonlocal full_response
 
         try:
             resp = http_requests.post(
@@ -247,6 +318,7 @@ def chat_stream():
                     if line.startswith("data: "):
                         chunk = line[6:]
                         if chunk == "[DONE]":
+                            _save_stream_conversation(g.user_id, message, full_response)
                             yield "data: [DONE]\n\n"
                             return
                         try:
@@ -258,6 +330,7 @@ def chat_stream():
                                 if parts:
                                     text = parts[0].get("text", "")
                                     if text:
+                                        full_response.append(text)
                                         yield f"data: {json_lib.dumps({'text': text})}\n\n"
                         except json_lib.JSONDecodeError:
                             continue

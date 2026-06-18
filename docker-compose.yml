@@ -1,0 +1,40 @@
+version: "3.9"
+
+services:
+  firestore-emulator:
+    image: gcr.io/google.com/cloudsdktool/google-cloud-cli:emulators
+    ports:
+      - "8080:8080"
+    command: >
+      gcloud beta emulators firestore start
+      --host-port=0.0.0.0:8080
+      --project=ecomentor-dev
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "5000:8080"
+    environment:
+      APP_ENV: development
+      FIRESTORE_EMULATOR_HOST: firestore-emulator:8080
+      GCP_PROJECT_ID: ecomentor-dev
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      SECRET_KEY: dev-secret-key
+    depends_on:
+      - firestore-emulator
+    volumes:
+      - ./backend:/app
+    command: flask run --host=0.0.0.0 --port=8080 --reload
+
+  frontend:
+    image: node:20-alpine
+    ports:
+      - "5173:5173"
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    command: sh -c "npm install && npx vite --host 0.0.0.0 --port 5173"
+    depends_on:
+      - backend

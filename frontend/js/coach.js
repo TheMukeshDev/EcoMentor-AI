@@ -164,6 +164,18 @@ function setupWhatIf() {
   const btn = document.getElementById('wi-analyze');
   const result = document.getElementById('wi-result');
 
+  async function getCurrentActivity() {
+    try {
+      const activitiesRes = await api('/activities?limit=1');
+      const activities = activitiesRes.data || [];
+      if (activities.length > 0) {
+        return activities[0];
+      }
+    } catch {
+    }
+    return null;
+  }
+
   btn.addEventListener('click', async () => {
     const transport = document.getElementById('wi-transport').value;
     const foodType = document.getElementById('wi-diet').value;
@@ -175,14 +187,22 @@ function setupWhatIf() {
     const scenario = `Switch to ${transport} transport and ${foodType} diet`;
 
     try {
+      const currentActivity = await getCurrentActivity();
+      const baseline = currentActivity || {
+        transport: 'walking',
+        distance: 0,
+        food_type: 'vegetarian',
+        ac_usage: 'none',
+        plastic_waste: 0,
+      };
       const res = await api('/ai/what-if', {
         method: 'POST',
         body: JSON.stringify({
-          transport: 'car',
-          distance: 10,
-          food_type: 'non_vegetarian',
-          ac_usage: '3-5',
-          plastic_waste: 0.5,
+          transport: baseline.transport || 'walking',
+          distance: baseline.distance || 0,
+          food_type: baseline.food_type || 'vegetarian',
+          ac_usage: baseline.ac_usage || 'none',
+          plastic_waste: baseline.plastic_waste || 0,
           scenario_description: scenario,
         }),
       });

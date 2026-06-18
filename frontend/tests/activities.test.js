@@ -29,6 +29,7 @@ describe('wizard', () => {
     clearStorage();
     vi.restoreAllMocks();
     global.fetch = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
+    localStorage.setItem('id_token', 'test-token');
   });
 
   it('renders wizard with 4 steps', async () => {

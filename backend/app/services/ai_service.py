@@ -2,12 +2,20 @@ import json
 import logging
 import os
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from typing import Any, Optional
 
 import requests
 
 from app.services.prompt_service import PromptService
 from app.services.cache_service import CacheService
+from app.services.carbon_service import estimate_gemini_carbon
+from app.utils.safety import (
+    check_input_safety,
+    check_output_safety,
+    filter_unsafe_output,
+)
+from app.extensions import db
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +23,7 @@ GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 GEMINI_MODEL = "gemini-2.0-flash"
 MAX_RETRIES = 3
 RETRY_DELAY = 1.0
+CONVERSATION_TTL_DAYS = int(os.getenv("CONVERSATION_TTL_DAYS", "7"))
 
 _FALLBACKS = {
     "recommendations": [
@@ -96,13 +105,64 @@ class AIService:
             return result
         return _FALLBACKS["daily_mission"]
 
+    def _summarize_and_compact(self, user_id):
+        history = self._conversations.get(user_id, [])
+        if len(history) < 40:
+            return
+
+        recent = history[-20:]
+        older = history[:-20]
+
+        lines = []
+        for msg in older:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")[:200]
+            lines.append(f"{role}: {content}")
+        conv_text = "\n".join(lines)
+
+        prompt = (
+            "Summarize the following eco-coaching conversation in 2-3 sentences. "
+            "Capture the user's main concerns, their context, and any suggestions given.\n\n"
+            f"{conv_text}\n\n"
+            'Return ONLY valid JSON: {"summary": "your 2-3 sentence summary here"}'
+        )
+
+        result = self._call_gemini(prompt, deterministic=True)
+        if result and isinstance(result, dict) and "summary" in result:
+            summary_text = result["summary"]
+            summary_entry = {
+                "role": "system",
+                "content": f"Previous conversation summary: {summary_text}",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+            self._conversations[user_id] = [summary_entry] + recent
+            logger.info(
+                "Summarized conversation for user %s (%d messages -> 1 summary + %d recent)",
+                user_id,
+                len(older),
+                len(recent),
+            )
+        else:
+            self._conversations[user_id] = history[-40:]
+            logger.info(
+                "Summarization failed for user %s, truncated to last 40 messages",
+                user_id,
+            )
+
     def chat(self, user_id, user_message, user_context):
-        if user_id not in self._conversations:
-            self._conversations[user_id] = []
+        safety = check_input_safety(user_message)
+        if not safety["safe"]:
+            logger.warning("Unsafe chat input from %s: %s", user_id, safety["issues"])
+            return "I'm here to discuss sustainability and eco-friendly topics. Let's keep our conversation focused on reducing your carbon footprint!"
+
+        self._ensure_conversation_loaded(user_id)
+        history = self._conversations[user_id]
+        self._summarize_and_compact(user_id)
         history = self._conversations[user_id]
         prompt = self._prompts.chat_response(user_message, user_context, history)
         result = self._call_gemini(prompt)
         if result and isinstance(result, dict) and "response" in result:
+            clean_response = filter_unsafe_output(result["response"])
             history.append(
                 {
                     "role": "user",
@@ -113,20 +173,76 @@ class AIService:
             history.append(
                 {
                     "role": "assistant",
-                    "content": result["response"],
+                    "content": clean_response,
                     "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
             )
             if len(history) > 50:
                 self._conversations[user_id] = history[-50:]
-            return result["response"]
+            self._persist_conversation(user_id, history)
+            return clean_response
         return "I'm here to help with your sustainability questions. Could you rephrase that?"
 
     def get_conversation_history(self, user_id):
+        self._ensure_conversation_loaded(user_id)
         return self._conversations.get(user_id, [])
 
     def clear_conversation(self, user_id):
         self._conversations.pop(user_id, None)
+        self._delete_conversation_from_store(user_id)
+
+    def _ensure_conversation_loaded(self, user_id):
+        if user_id not in self._conversations:
+            stored = self._load_conversation_from_store(user_id)
+            self._conversations[user_id] = stored
+
+    def _conversation_collection(self):
+        if db is None:
+            return None
+        return db.collection("conversations")
+
+    def _load_conversation_from_store(self, user_id):
+        col = self._conversation_collection()
+        if col is None:
+            return []
+        try:
+            doc = col.document(user_id).get()
+            if doc.exists:
+                data = doc.to_dict()
+                messages = data.get("messages", [])
+                cutoff = datetime.now(timezone.utc) - timedelta(
+                    days=CONVERSATION_TTL_DAYS
+                )
+                valid = [
+                    m for m in messages if m.get("timestamp", "") >= cutoff.isoformat()
+                ]
+                return valid
+        except Exception as exc:
+            logger.warning("Failed to load conversation for %s: %s", user_id, exc)
+        return []
+
+    def _persist_conversation(self, user_id, messages):
+        col = self._conversation_collection()
+        if col is None:
+            return
+        try:
+            col.document(user_id).set(
+                {
+                    "messages": messages,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+        except Exception as exc:
+            logger.warning("Failed to persist conversation for %s: %s", user_id, exc)
+
+    def _delete_conversation_from_store(self, user_id):
+        col = self._conversation_collection()
+        if col is None:
+            return
+        try:
+            col.document(user_id).delete()
+        except Exception as exc:
+            logger.warning("Failed to delete conversation for %s: %s", user_id, exc)
 
     def whats_if(self, user_id, current_data, scenario_changes, user_context):
         prompt = self._prompts.whats_if_analysis(
@@ -161,28 +277,7 @@ class AIService:
         self._cache.invalidate(user_id)
 
     def _estimate_carbon(self, data):
-        transport = data.get("transport", "walking")
-        distance = float(data.get("distance", 0))
-        food_type = data.get("food_type", "vegetarian")
-        ac_usage = data.get("ac_usage", "none")
-        plastic_waste = float(data.get("plastic_waste", 0))
-
-        transport_factor = {
-            "walking": 0,
-            "bicycle": 0,
-            "bus": 0.089,
-            "metro": 0.041,
-            "car": 0.171,
-            "plane": 0.255,
-        }.get(transport, 0.089)
-        food_factor = {"vegan": 1.5, "vegetarian": 1.7, "non_vegetarian": 2.5}.get(
-            food_type, 1.7
-        )
-        ac_factor = {"none": 0, "1-2": 0.5, "3-5": 1.2, "6+": 2.0}.get(ac_usage, 0)
-
-        return (
-            transport_factor * distance + food_factor + ac_factor + plastic_waste * 0.5
-        )
+        return estimate_gemini_carbon(data)
 
     def _call_gemini(self, prompt, deterministic=False):
         if not self._api_key:

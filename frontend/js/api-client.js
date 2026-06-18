@@ -1,3 +1,5 @@
+import { getCurrentToken } from './auth_service.js';
+
 const API_BASE = '/api';
 let csrfToken = '';
 let navigateFn = null;
@@ -9,7 +11,7 @@ export function setAuthHandlers(handlers) {
 }
 
 export async function api(path, options = {}) {
-  const token = localStorage.getItem('id_token');
+  const token = localStorage.getItem('id_token') || await getCurrentToken();
   const headers = { 'Content-Type': 'application/json', ...options.headers };
   if (token) headers['Authorization'] = `Bearer ${token}`;
   if (csrfToken && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(options.method || '')) {
@@ -40,4 +42,24 @@ export async function fetchCsrfToken() {
 
 export function clearCsrfToken() {
   csrfToken = '';
+}
+
+export async function apiGetCached(path, ttlMs = 30000) {
+  const cacheKey = `api_cache_${path}`;
+  const cached = sessionStorage.getItem(cacheKey);
+  if (cached) {
+    try {
+      const { data, timestamp } = JSON.parse(cached);
+      if (Date.now() - timestamp < ttlMs) {
+        return data;
+      }
+    } catch {}
+  }
+  const result = await api(path);
+  sessionStorage.setItem(cacheKey, JSON.stringify({ data: result, timestamp: Date.now() }));
+  return result;
+}
+
+export function clearCache() {
+  Object.keys(sessionStorage).filter(k => k.startsWith('api_cache_')).forEach(k => sessionStorage.removeItem(k));
 }

@@ -14,7 +14,7 @@ def validate_body(schema_cls):
             data = request.get_json(silent=True) or {}
             try:
                 validated = schema_cls.model_validate(data)
-                request.validated_body = validated
+                request.validated_body = validated.model_dump()
             except PydanticValidationError as exc:
                 errors = [
                     {

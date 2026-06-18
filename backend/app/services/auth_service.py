@@ -104,6 +104,49 @@ class AuthService:
         self._user_repo.update(uid, updates)
         return self._user_repo.get(uid)
 
+    def google_auth(self, id_token):
+        try:
+            decoded = firebase_auth.verify_id_token(id_token)
+        except Exception as exc:
+            raise AuthenticationError(f"Invalid token: {exc}")
+
+        uid = decoded["uid"]
+        email = decoded.get("email", "")
+        name = decoded.get("name", decoded.get("display_name", ""))
+        photo_url = decoded.get("picture", "")
+
+        existing = self._user_repo.get(uid)
+        now = datetime.now(timezone.utc).isoformat()
+
+        if existing:
+            updates = {
+                "lastLogin": now,
+                "name": name or existing.get("name", ""),
+                "email": email or existing.get("email", ""),
+                "photoURL": photo_url or existing.get("photoURL", ""),
+            }
+            self._user_repo.update(uid, updates)
+            profile = self._user_repo.get(uid)
+        else:
+            profile = {
+                "uid": uid,
+                "name": name or email.split("@")[0] or "User",
+                "email": email,
+                "photoURL": photo_url,
+                "createdAt": now,
+                "lastLogin": now,
+                "onboardingCompleted": False,
+                "level": 1,
+                "streak": 0,
+                "totalCarbonSaved": 0.0,
+                "achievements": [],
+                "ecoScore": 50,
+                "badges": ["Eco Beginner"],
+            }
+            self._user_repo.set(uid, profile)
+
+        return {"profile": profile}
+
     def _sign_in_with_password(self, email, password):
         api_key = current_app.config.get("FIREBASE_API_KEY", "")
         if not api_key:

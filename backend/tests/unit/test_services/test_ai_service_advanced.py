@@ -69,3 +69,104 @@ class TestAIServiceAdvanced:
         ai_service._cache.set("user-1", "recommendations", {"tip": "test"})
         ai_service.invalidate_cache("user-1")
         assert ai_service._cache.get("user-1", "recommendations") is None
+
+    def test_summarize_compact_below_threshold(self, ai_service):
+        for i in range(20):
+            ai_service._conversations["user-1"] = ai_service._conversations.get(
+                "user-1", []
+            ) + [
+                {
+                    "role": "user",
+                    "content": f"msg {i}",
+                    "timestamp": "2026-01-01T00:00:00",
+                },
+                {
+                    "role": "assistant",
+                    "content": f"reply {i}",
+                    "timestamp": "2026-01-01T00:00:00",
+                },
+            ]
+        before = len(ai_service._conversations["user-1"])
+        ai_service._summarize_and_compact("user-1")
+        assert len(ai_service._conversations["user-1"]) == before
+
+    def test_summarize_compact_success(self, ai_service, mocker):
+        for i in range(25):
+            ai_service._conversations["user-1"] = ai_service._conversations.get(
+                "user-1", []
+            ) + [
+                {
+                    "role": "user",
+                    "content": f"msg {i}",
+                    "timestamp": "2026-01-01T00:00:00",
+                },
+                {
+                    "role": "assistant",
+                    "content": f"reply {i}",
+                    "timestamp": "2026-01-01T00:00:00",
+                },
+            ]
+        mocker.patch.object(
+            ai_service,
+            "_call_gemini",
+            return_value={"summary": "User discussed transportation options"},
+        )
+        ai_service._summarize_and_compact("user-1")
+        history = ai_service._conversations["user-1"]
+        assert history[0]["role"] == "system"
+        assert "summary" in history[0]["content"].lower()
+        assert len(history) <= 21
+
+    def test_summarize_compact_fallback_on_failure(self, ai_service, mock_gemini):
+        for i in range(25):
+            ai_service._conversations["user-1"] = ai_service._conversations.get(
+                "user-1", []
+            ) + [
+                {
+                    "role": "user",
+                    "content": f"msg {i}",
+                    "timestamp": "2026-01-01T00:00:00",
+                },
+                {
+                    "role": "assistant",
+                    "content": f"reply {i}",
+                    "timestamp": "2026-01-01T00:00:00",
+                },
+            ]
+        ai_service._summarize_and_compact("user-1")
+        history = ai_service._conversations["user-1"]
+        assert len(history) <= 40
+
+    def test_chat_triggers_summarization_at_threshold(self, ai_service, mocker):
+        summarizer = mocker.patch.object(ai_service, "_summarize_and_compact")
+        mocker.patch.object(ai_service, "_call_gemini", return_value={"response": "OK"})
+        for i in range(20):
+            ai_service._conversations["user-1"] = ai_service._conversations.get(
+                "user-1", []
+            ) + [
+                {
+                    "role": "user",
+                    "content": f"msg {i}",
+                    "timestamp": "2026-01-01T00:00:00",
+                },
+                {
+                    "role": "assistant",
+                    "content": f"reply {i}",
+                    "timestamp": "2026-01-01T00:00:00",
+                },
+            ]
+        ai_service.chat("user-1", "new message", {"level": "Beginner"})
+        summarizer.assert_called_once_with("user-1")
+
+    def test_prompt_formats_system_role(self, ai_service, mock_gemini):
+        ai_service._conversations["user-1"] = [
+            {
+                "role": "system",
+                "content": "Previous conversation summary: User talked about recycling",
+                "timestamp": "2026-01-01T00:00:00",
+            },
+            {"role": "user", "content": "Hello", "timestamp": "2026-01-01T00:00:00"},
+        ]
+        mock_gemini.return_value = {"response": "Hi there!"}
+        result = ai_service.chat("user-1", "Hello", {"level": "Beginner"})
+        assert result == "Hi there!"

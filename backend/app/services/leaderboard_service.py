@@ -37,20 +37,23 @@ class LeaderboardService:
         friend_uids = user.get("friend_uids", [])
         if not friend_uids:
             return []
+        friends = self._user_repo.get_batch(friend_uids)
+        friend_map = {f.get("uid", f.get("id", "")): f for f in friends if f}
         results = []
         for fid in friend_uids:
-            friend = self._user_repo.get(fid)
-            if friend:
-                latest = self._footprint_repo.find_latest_by_user(fid)
-                results.append(
-                    {
-                        "uid": fid,
-                        "name": friend.get("name", "Anonymous"),
-                        "level": friend.get("level", "Beginner"),
-                        "points": friend.get("points", 0),
-                        "latest_score": latest.get("carbon_score", 0) if latest else 0,
-                    }
-                )
+            friend = friend_map.get(fid)
+            if not friend:
+                continue
+            latest = self._footprint_repo.find_latest_by_user(fid)
+            results.append(
+                {
+                    "uid": fid,
+                    "name": friend.get("name", "Anonymous"),
+                    "level": friend.get("level", "Beginner"),
+                    "points": friend.get("points", 0),
+                    "latest_score": latest.get("carbon_score", 0) if latest else 0,
+                }
+            )
         results.sort(key=lambda r: r["points"], reverse=True)
         return results
 

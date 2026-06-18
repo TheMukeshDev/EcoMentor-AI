@@ -1,23 +1,41 @@
-// CSS imports (Vite bundles these)
 import '../css/variables.css';
 import '../css/reset.css';
 import '../css/base.css';
 import '../css/layout.css';
 import '../css/components.css';
 import '../css/utilities.css';
+import '../css/dashboard.css';
 
-// Feature modules
 import { htmlEscape, toast } from './utils.js';
 import { initTheme, toggleTheme } from './theme.js';
 import { api, fetchCsrfToken, clearCsrfToken, setAuthHandlers } from './api-client.js';
-import { registerRoute, navigate, updateNav } from './router.js';
+import { registerRoute, navigate, updateNav, updateBottomNav } from './router.js';
+import { initAuthListener, logout as firebaseLogout, onAuthStateChange } from './auth_service.js';
+import { setupAuthGuard } from './auth_guard.js';
+import { subscribe, setState, getState } from './store.js';
 
-// Re-export for page modules
 export { htmlEscape, toast, api, fetchCsrfToken, registerRoute, navigate, initTheme };
 
 setAuthHandlers({ navigate, updateNav });
 
+onAuthStateChange((user, profile) => {
+  updateNav();
+  updateBottomNav();
+});
+
+setupAuthGuard();
+
 window.addEventListener('hashchange', () => navigate(window.location.hash));
+
+async function logoutUser() {
+  await firebaseLogout();
+  clearCsrfToken();
+  updateNav();
+  updateBottomNav();
+  navigate('');
+  toast('Logged out successfully', 'info');
+}
+
 window.addEventListener('load', async () => {
   await Promise.all([
     import('./home.js'),
@@ -33,6 +51,8 @@ window.addEventListener('load', async () => {
   ]);
 
   initTheme();
+  initAuthListener();
+
   document.getElementById('theme-toggle')?.addEventListener('click', toggleTheme);
   document.getElementById('nav-toggle')?.addEventListener('click', () => {
     const nav = document.getElementById('nav-links');
@@ -40,13 +60,22 @@ window.addEventListener('load', async () => {
     const open = nav.classList.toggle('open');
     toggle.setAttribute('aria-expanded', open);
   });
-  document.getElementById('logout-btn')?.addEventListener('click', () => {
-    localStorage.removeItem('id_token');
-    clearCsrfToken();
-    updateNav();
-    navigate('');
-  });
+
+  const logoutBtn = document.getElementById('logout-btn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      logoutUser();
+    });
+  }
+
+  const storedUser = localStorage.getItem('firebase_user');
+  if (storedUser) {
+    setState('is_authenticated', true);
+  }
+
   updateNav();
+  updateBottomNav();
   fetchCsrfToken();
   navigate(window.location.hash);
 });

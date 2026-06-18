@@ -8,3 +8,8 @@ class UserRepository(BaseRepository):
     def find_by_email(self, email):
         results = self.query(filters=[("email", "==", email)])
         return results[0] if results else None
+
+    def get_batch(self, doc_ids):
+        refs = [self._collection.document(did) for did in doc_ids]
+        snapshots = self._db.get_all(refs)
+        return [{"id": s.id, **s.to_dict()} for s in snapshots if s and s.exists]

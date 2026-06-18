@@ -334,3 +334,52 @@ CI/CD configs reference [docs/security.md](docs/security.md) for incident respon
 | Infra | Cloud Run · Firebase Hosting · Secret Manager |
 | CI | GitHub Actions · Ruff · pytest |
 | Frontend | Vanilla JS · CSS custom properties |
+
+## Brand Identity & SVG Assets
+
+EcoMentor AI uses a modern, high-quality vector mascot logo featuring a friendly eco-robot character:
+- **White Helmet & Body**: Represents clean technology and accessibility.
+- **Glowing Green Eyes & Smile**: Conveys a positive, encouraging AI coaching experience.
+- **Green Headphones**: Represents conversational learning and listening to eco-friendly ideas.
+- **Leaf Sprout**: Symbolizes growth, nature, and environmental preservation.
+- **Ecosystem Circular Badge**: In the background, wind turbines, rolling green hills, pine trees, and a sun represent a clean-energy future.
+
+### Asset Structure (PWA & Web)
+
+All brand assets are stored in vector SVG format inside the `frontend/public/` folder, ensuring sharp rendering on any resolution (from tiny favicons to 4K displays):
+
+| Asset | Path | Size / Output | Purpose |
+|---|---|---|---|
+| **Favicon** | `/favicon.svg` | `64x64` | Optimized, high-contrast mascot head for browser tabs and navigation. |
+| **Android / PWA Icon** | `/icon-192.svg` | `192x192` | Maskable PWA app launcher icon for mobile home screens. |
+| **PWA Splash / Large Icon** | `/icon-512.svg` | `512x512` | High-res full badge logo including "EcoMentor AI" branding. |
+| **Apple Touch Icon** | Linked via `/icon-192.svg` | Dynamic | Used when saving the app to iOS homescreen (configured in `index.html`). |
+
+### Exporting & Rendering SVGs for Legacy Devices
+
+Some app stores or older devices may require rasterized PNG icons in specific dimensions. You can easily convert these SVG assets to any required PNG size using standard CLI tools:
+
+#### Using ImageMagick
+```bash
+# Convert to 512x512 PNG
+magick -background none -size 512x512 frontend/public/icon-512.svg frontend/public/icon-512.png
+
+# Convert to 192x192 PNG
+magick -background none -size 192x192 frontend/public/icon-192.svg frontend/public/icon-192.png
+
+# Convert to Apple touch icon (180x180 PNG)
+magick -background none -size 180x180 frontend/public/icon-192.svg frontend/public/apple-touch-icon.png
+```
+
+#### Using rsvg-convert (librsvg)
+```bash
+# Export 512x512 PWA Splash screen
+rsvg-convert -w 512 -h 512 -f png -o frontend/public/icon-512.png frontend/public/icon-512.svg
+```
+
+#### Using Inkscape CLI
+```bash
+# Render to specific dimension
+inkscape -w 180 -h 180 frontend/public/icon-192.svg -o frontend/public/apple-touch-icon.png
+```
+

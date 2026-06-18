@@ -1,16 +1,17 @@
 import uuid
+import os
 from datetime import datetime, timezone
 from collections import OrderedDict
 
 
 CACHE_TTL = {
-    "recommendations": 86400,
-    "weekly_report": 604800,
-    "eco_personality": 604800,
-    "daily_mission": 86400,
+    "recommendations": int(os.getenv("CACHE_TTL_RECOMMENDATIONS", "3600")),
+    "weekly_report": int(os.getenv("CACHE_TTL_WEEKLY_REPORT", "86400")),
+    "eco_personality": int(os.getenv("CACHE_TTL_ECO_PERSONALITY", "86400")),
+    "daily_mission": int(os.getenv("CACHE_TTL_DAILY_MISSION", "3600")),
 }
 
-MAX_LOCAL_ENTRIES = 1000
+MAX_LOCAL_ENTRIES = int(os.getenv("CACHE_MAX_LOCAL_ENTRIES", "1000"))
 
 
 class CacheService:

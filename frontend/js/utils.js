@@ -10,5 +10,9 @@ export function toast(message, type = 'info') {
   el.textContent = message;
   el.setAttribute('role', 'alert');
   document.body.appendChild(el);
-  setTimeout(() => el.remove(), 3000);
+  let timer = setTimeout(() => el.remove(), 3000);
+  el.addEventListener('mouseenter', () => clearTimeout(timer));
+  el.addEventListener('mouseleave', () => {
+    timer = setTimeout(() => el.remove(), 3000);
+  });
 }

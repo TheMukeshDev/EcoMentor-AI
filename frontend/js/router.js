@@ -1,3 +1,6 @@
+import { requireAuth } from './auth_guard.js';
+import { getState } from './store.js';
+
 const routes = {};
 
 export function registerRoute(path, renderFn) {
@@ -5,24 +8,32 @@ export function registerRoute(path, renderFn) {
 }
 
 export function navigate(hash) {
-  const path = hash.replace(/^#\/?/, '/') || '/';
-  const app = document.getElementById('app');
+  let path = hash.replace(/^#\/?/, '/') || '/';
 
+  const redirect = requireAuth(path);
+  if (redirect) {
+    path = redirect.replace(/^#\/?/, '/') || '/';
+    window.location.hash = redirect;
+  }
+
+  const app = document.getElementById('app');
   const renderFn = routes[path];
   if (renderFn) {
     app.innerHTML = '<div class="spinner" role="status"><span class="sr-only">Loading...</span></div>';
     Promise.resolve(renderFn()).then(() => {
       updateNav();
-      document.querySelectorAll('[data-nav], [data-bottom-nav]').forEach(l => {
+      updateBottomNav();
+      document.querySelectorAll('[data-nav]').forEach(l => {
         l.removeAttribute('aria-current');
         if (l.getAttribute('href') === hash || (hash === '' && l.getAttribute('href') === '#/')) {
           l.setAttribute('aria-current', 'page');
         }
       });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     });
   } else {
     if (path !== '/') {
-      console.warn(`Route not found: "${path}" (from hash: "${hash}")`);
+      console.warn(`Route not found: "${path}"`);
     }
     app.innerHTML = `
       <div class="error-state" style="padding:80px 20px">
@@ -39,9 +50,19 @@ export function navigate(hash) {
 }
 
 export function updateNav() {
-  const token = localStorage.getItem('id_token');
-  document.querySelectorAll('.auth-hidden').forEach(el => el.style.display = token ? '' : 'none');
-  document.querySelectorAll('.auth-visible').forEach(el => el.style.display = token ? 'none' : '');
+  const authenticated = getState('is_authenticated') === true || !!localStorage.getItem('id_token');
+  document.querySelectorAll('.auth-hidden').forEach(el => el.style.display = authenticated ? '' : 'none');
+  document.querySelectorAll('.auth-visible').forEach(el => el.style.display = authenticated ? 'none' : '');
+}
+
+export function updateBottomNav() {
+  const authenticated = getState('is_authenticated') === true || !!localStorage.getItem('id_token');
+  document.querySelectorAll('.bottom-nav-link').forEach(el => {
+    const href = el.getAttribute('href');
+    if (href === '#/dashboard' || href === '#/log' || href === '#/coach' || href === '#/leaderboard' || href === '#/settings') {
+      el.style.display = authenticated ? '' : 'none';
+    }
+  });
 }
 
 function closeNav() {
