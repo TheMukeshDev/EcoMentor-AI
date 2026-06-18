@@ -7,12 +7,16 @@ import { dashboardSkeleton } from './skeletons.js';
 let dashboardCharts = {};
 let refreshInterval = null;
 let profile = {};
+let isRendering = false;
 
 function getProfile() {
   return getState('user_profile') || JSON.parse(localStorage.getItem('firebase_user') || '{}');
 }
 
 async function renderDashboard() {
+  if (isRendering) return;
+  isRendering = true;
+  
   const app = document.getElementById('app');
   app.innerHTML = dashboardSkeleton();
   profile = getProfile();
@@ -37,8 +41,14 @@ async function renderDashboard() {
     } catch {}
 
     renderFullDashboard(app, profile, summary, history, insights, trends, recs);
-    initRangeButtons();
-    initChallenges();
+    
+    // Only init listeners if they aren't bound, by attaching to body and delegating
+    if (!window.__dashboardListenersInit) {
+      initRangeButtons();
+      initChallenges();
+      window.__dashboardListenersInit = true;
+    }
+    
     if (refreshInterval) clearInterval(refreshInterval);
     refreshInterval = setInterval(() => clearCache(), 120000);
   } catch (err) {
@@ -49,6 +59,8 @@ async function renderDashboard() {
         <button class="btn btn-primary" onclick="window.location.hash='#/dashboard'">Retry</button>
       </div>
     `;
+  } finally {
+    isRendering = false;
   }
 }
 

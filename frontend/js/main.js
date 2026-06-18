@@ -5,6 +5,7 @@ import '../css/layout.css';
 import '../css/components.css';
 import '../css/utilities.css';
 import '../css/dashboard.css';
+import '../css/premium-home.css';
 
 import { htmlEscape, toast } from './utils.js';
 import { initTheme, toggleTheme } from './theme.js';

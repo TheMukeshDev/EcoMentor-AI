@@ -1,13 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="EcoMentor AI — Track, understand, and reduce your carbon footprint with personalized AI coaching. Get data-driven insights grounded in IPCC emission factors.">
+  <meta name="description"
+    content="EcoMentor AI — Track, understand, and reduce your carbon footprint with personalized AI coaching. Get data-driven insights grounded in IPCC emission factors.">
   <meta name="theme-color" content="#2d6a4f">
   <meta name="robots" content="index, follow">
   <meta property="og:title" content="EcoMentor AI — Carbon Footprint Tracker">
-  <meta property="og:description" content="AI-powered platform to track, reduce, and forecast your carbon emissions with personalized coaching.">
+  <meta property="og:description"
+    content="AI-powered platform to track, reduce, and forecast your carbon emissions with personalized coaching.">
   <meta property="og:type" content="website">
   <link rel="manifest" href="/manifest.json">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -19,7 +22,15 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/reset.css">
+  <link rel="stylesheet" href="/css/variables.css">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/layout.css">
+  <link rel="stylesheet" href="/css/components.css">
+  <link rel="stylesheet" href="/css/dashboard.css">
+  <link rel="stylesheet" href="/css/premium-home.css">
 </head>
+
 <body>
   <a class="skip-link" href="#main-content">Skip to main content</a>
 
@@ -29,9 +40,6 @@
         <img src="/favicon.svg" class="logo-icon" alt="" width="32" height="32" aria-hidden="true">
         <span class="logo-text">EcoMentor</span>
       </a>
-      <button class="nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="nav-links" id="nav-toggle">
-        <span class="hamburger" aria-hidden="true"></span>
-      </button>
       <ul class="nav-links" id="nav-links" role="list">
         <li><a href="#/" data-nav id="nav-home">Home</a></li>
         <li class="auth-hidden"><a href="#/dashboard" data-nav id="nav-dashboard">Dashboard</a></li>
@@ -46,7 +54,14 @@
         <li class="auth-visible"><a href="#/signup" data-nav id="nav-signup">Sign Up</a></li>
         <li class="auth-hidden"><a href="#/" data-nav id="logout-btn">Logout</a></li>
       </ul>
-      <button class="theme-toggle" aria-label="Toggle dark mode" id="theme-toggle" role="switch" aria-checked="false">&#9790;</button>
+      <div class="nav-controls">
+        <button class="theme-toggle" aria-label="Toggle dark mode" id="theme-toggle" role="switch"
+          aria-checked="false">&#9790;</button>
+        <button class="nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="nav-links"
+          id="nav-toggle">
+          <span class="hamburger" aria-hidden="true"></span>
+        </button>
+      </div>
     </nav>
   </header>
 
@@ -90,9 +105,10 @@
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').catch(() => {});
+        navigator.serviceWorker.register('/sw.js').catch(() => { });
       });
     }
   </script>
 </body>
+
 </html>

@@ -218,3 +218,15 @@ def _register_additional_routes(app: Flask) -> None:
             Dict with status key.
         """
         return {"status": "healthy"}
+
+    @app.route("/")
+    def index() -> dict[str, str]:
+        """Root endpoint.
+
+        Returns:
+            Dict with API status.
+        """
+        return {
+            "status": "online", 
+            "message": "EcoMentor AI Backend API is running. Please access the frontend at http://localhost:5173"
+        }
