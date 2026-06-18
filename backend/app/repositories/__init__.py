@@ -1,0 +1,5 @@
+from app.repositories.user_repository import UserRepository
+from app.repositories.activity_repository import ActivityRepository
+from app.repositories.footprint_repository import FootprintRepository
+from app.repositories.recommendation_repository import RecommendationRepository
+from app.repositories.challenge_repository import ChallengeRepository

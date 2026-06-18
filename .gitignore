@@ -1,0 +1,63 @@
+# ── Python ──────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+*.whl
+.venv/
+venv/
+env/
+.uv/
+.pip/
+
+# ── Environment ─────────────────────────────────────
+.env
+.env.local
+.env.production
+!.env.example
+
+# ── IDE / Editor ────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ── Testing ─────────────────────────────────────────
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.trx
+
+# ── Firestore Emulator ──────────────────────────────
+firestore-emulator-data/
+firebase-import*.json
+
+# ── Firebase ────────────────────────────────────────
+firebase-debug.log
+.firebase/
+ui-debug.log
+
+# ── Docker ──────────────────────────────────────────
+.docker/
+*.tar
+
+# ── Secrets (fallback location) ─────────────────────
+**/credentials.json
+**/service-account.json
+*.pem
+*.key
+
+# ── OS ──────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
