@@ -283,8 +283,8 @@ async function renderHome() {
         </div>
       </section>
 
-      <!-- BENEFITS SECTION -->
-      <section class="hp-benefits" aria-label="Benefits">
+      <!-- BENEFITS SECTION (ABOUT) -->
+      <section class="hp-benefits" id="hp-about" aria-label="Benefits">
         <div class="hp-section-header">
           <h2 class="hp-section-title">Sustainability, but make it premium</h2>
           <p class="hp-section-sub">Save money, build habits, earn real rewards, and see your impact.</p>
@@ -308,8 +308,31 @@ async function renderHome() {
         </div>
       </section>
 
+      <!-- CHALLENGES SECTION -->
+      <section class="hp-challenges" id="hp-challenges" aria-label="Active Challenges preview">
+        <div class="hp-section-header">
+          <h2 class="hp-section-title">Engaging Eco Missions</h2>
+          <p class="hp-section-sub">Participate in daily and weekly challenges to boost your EcoScore and build sustainable habits.</p>
+        </div>
+
+        <div class="hp-grid-5" style="display:flex; justify-content:center; gap:20px; flex-wrap:wrap; max-width:1200px; margin:0 auto;">
+          ${[
+            { title: 'No-Car Weekend', emoji: '🚴', points: 100, desc: 'Go car-free this weekend' },
+            { title: 'Vegetarian Day', emoji: '🥗', points: 75, desc: 'Try a meat-free day' },
+            { title: 'Energy Saver', emoji: '⚡', points: 60, desc: 'Reduce AC usage by 4 hours' }
+          ].map(c => `
+            <div class="hp-reveal" style="background:var(--color-surface); padding:24px; border-radius:var(--radius-lg); border:1px solid var(--color-border); width:100%; max-width:320px; text-align:center; box-shadow:var(--shadow-sm);">
+              <div style="font-size:3rem; margin-bottom:16px;">${c.emoji}</div>
+              <h3 style="font-size:1.1rem; font-weight:700; margin-bottom:8px; color:var(--color-text);">${c.title}</h3>
+              <p style="font-size:0.9rem; color:var(--color-text-muted); margin-bottom:16px;">${c.desc}</p>
+              <div style="font-weight:600; color:var(--color-primary); background:rgba(45,106,79,0.1); padding:6px 12px; border-radius:20px; display:inline-block;">+${c.points} pts</div>
+            </div>
+          `).join('')}
+        </div>
+      </section>
+
       <!-- REWARDS STORE PREVIEW -->
-      <section class="hp-rewards" aria-label="Rewards store preview">
+      <section class="hp-rewards" id="hp-rewards" aria-label="Rewards store preview">
         <div class="hp-section-header">
           <h2 class="hp-section-title">Turn EcoPoints Into Real Rewards</h2>
           <p class="hp-section-sub">Exclusive drops, eco-friendly swag, and digital badges—redeem in seconds.</p>
@@ -346,10 +369,10 @@ async function renderHome() {
         </div>
       </section>
 
-      <!-- LEADERBOARD SECTION -->
-      <section class="hp-leaderboard" aria-label="Top users leaderboard">
+      <!-- LEADERBOARD & COMMUNITY SECTION -->
+      <section class="hp-leaderboard" id="hp-community" aria-label="Top users leaderboard">
         <div class="hp-section-header">
-          <h2 class="hp-section-title">Top Eco Warriors</h2>
+          <h2 class="hp-section-title">Community & Top Eco Warriors</h2>
           <p class="hp-section-sub">Join the global community competing for sustainability leadership.</p>
         </div>
 

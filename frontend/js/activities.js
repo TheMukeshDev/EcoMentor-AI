@@ -1,4 +1,5 @@
 import { api, toast, registerRoute, navigate } from './main.js';
+import { clearCache } from './api-client.js';
 
 const WIZARD_STEPS = [
   { id: 'transport', title: 'Travel', icon: '\uD83D\uDE8C' },
@@ -249,6 +250,7 @@ async function submitActivity() {
       method: 'POST',
       body: JSON.stringify(wizardData),
     });
+    clearCache();
     toast('Activity logged! +10 points', 'success');
     navigate('#/dashboard');
   } catch (err) {

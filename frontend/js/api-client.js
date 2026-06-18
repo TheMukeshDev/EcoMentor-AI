@@ -1,6 +1,6 @@
 import { getCurrentToken } from './auth_service.js';
 
-const API_BASE = '/api';
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 let csrfToken = '';
 let navigateFn = null;
 let updateNavFn = null;
@@ -34,9 +34,8 @@ export async function api(path, options = {}) {
 
 export async function fetchCsrfToken() {
   try {
-    const res = await fetch('/api/auth/csrf-token');
-    const data = await res.json();
-    csrfToken = data.token || data.csrf_token || '';
+    const res = await api('/auth/csrf-token');
+    csrfToken = res.token || res.csrf_token || res.data?.csrf_token || '';
   } catch (_) { }
 }
 

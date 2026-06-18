@@ -10,31 +10,13 @@ from app.utils.errors import AuthenticationError
 
 logger = logging.getLogger(__name__)
 
-_firebase_initialized = False
-
 FIREBASE_AUTH_URL = (
     "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword"
 )
 
-
-def _init_firebase_admin():
-    global _firebase_initialized
-    if _firebase_initialized:
-        return
-    try:
-        firebase_admin.get_app()
-    except ValueError:
-        try:
-            firebase_admin.initialize_app()
-        except Exception as exc:
-            logger.warning("Firebase Admin not configured: %s", exc)
-    _firebase_initialized = True
-
-
 class AuthService:
     def __init__(self, user_repository):
         self._user_repo = user_repository
-        _init_firebase_admin()
 
     def register_user(self, data):
         email = data.get("email")

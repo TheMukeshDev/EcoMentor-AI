@@ -68,8 +68,8 @@ function renderFullDashboard(app, profile, summary, history, insights, trends, r
   const name = profile.name || profile.displayName || 'Eco Hero';
   const photo = profile.photoURL || '';
   const level = profile.level || 1;
-  const streak = profile.streak || summary.streak || 0;
-  const ecoScore = profile.ecoScore || summary.current_score || 50;
+  const streak = summary.streak !== undefined ? summary.streak : (profile.streak || 0);
+  const ecoScore = summary.current_score !== undefined ? summary.current_score : (profile.ecoScore || 50);
   const prevScore = trends.previous_week_avg || ecoScore;
   const direction = trends.direction || 'stable';
   const change = trends.change || 0;
@@ -77,7 +77,7 @@ function renderFullDashboard(app, profile, summary, history, insights, trends, r
 
   const aiMsg = generateAIMessage(direction, change);
 
-  const co2Saved = summary.totalCarbonSaved || profile.totalCarbonSaved || 0;
+  const co2Saved = summary.totalCarbonSaved !== undefined ? summary.totalCarbonSaved : (profile.totalCarbonSaved || 0);
   const treesEq = (co2Saved / 21).toFixed(1);
   const waterSaved = (co2Saved * 15).toFixed(0);
   const elecSaved = (co2Saved * 4).toFixed(0);
@@ -555,7 +555,7 @@ onBeforeRouteChange(() => {
 
 _unsubProfile = subscribe('user_profile', () => {
   const hash = window.location.hash;
-  if (!hash || hash === '#/' || hash === '#/dashboard') renderDashboard();
+  if (hash === '#/dashboard') renderDashboard();
 });
 
 registerRoute('/dashboard', renderDashboard);

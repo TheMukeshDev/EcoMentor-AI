@@ -1,6 +1,9 @@
 from google.cloud import firestore
 from google.oauth2 import service_account
 
+import firebase_admin
+from firebase_admin import credentials
+
 db = None
 
 
@@ -29,9 +32,19 @@ def init_firestore(app):
                 "client_email": client_email,
                 "token_uri": "https://oauth2.googleapis.com/token",
             }
-            credentials = service_account.Credentials.from_service_account_info(info)
-            db = firestore.Client(project=project, credentials=credentials)
+            _credentials = service_account.Credentials.from_service_account_info(info)
+            db = firestore.Client(project=project, credentials=_credentials)
+            
+            try:
+                firebase_admin.get_app()
+            except ValueError:
+                firebase_creds = credentials.Certificate(info)
+                firebase_admin.initialize_app(firebase_creds, {"projectId": project})
         else:
             db = firestore.Client(project=project)
+            try:
+                firebase_admin.get_app()
+            except ValueError:
+                firebase_admin.initialize_app(options={"projectId": project})
 
     app.extensions["firestore"] = db

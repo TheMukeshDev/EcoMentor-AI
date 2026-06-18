@@ -13,6 +13,8 @@ export function onBeforeRouteChange(fn) {
   _beforeRouteChange = fn;
 }
 
+let currentRenderedRoute = null;
+
 export function navigate(hash) {
   if (getState('auth_initialized') !== true) {
     const app = document.getElementById('app');
@@ -25,12 +27,14 @@ export function navigate(hash) {
     return;
   }
 
-  let path = hash.replace(/^#\/?/, '/') || '/';
+  let isAnchor = hash && hash.startsWith('#') && !hash.startsWith('#/');
+  let path = isAnchor ? '/' : (hash.replace(/^#\/?/, '/') || '/');
 
   const redirect = requireAuth(path);
   if (redirect) {
     path = redirect.replace(/^#\/?/, '/') || '/';
     window.location.hash = redirect;
+    return;
   }
 
   const app = document.getElementById('app');
@@ -45,18 +49,37 @@ export function navigate(hash) {
   }
 
   if (_beforeRouteChange) _beforeRouteChange();
+  
   if (renderFn) {
-    app.innerHTML = '<div class="spinner" role="status"><span class="sr-only">Loading...</span></div>';
-    Promise.resolve(renderFn()).then(() => {
-      updateNav();
-      document.querySelectorAll('[data-nav]').forEach(l => {
-        l.removeAttribute('aria-current');
-        if (l.getAttribute('href') === hash || (hash === '' && l.getAttribute('href') === '#/')) {
-          l.setAttribute('aria-current', 'page');
+    if (currentRenderedRoute === path && isAnchor) {
+      const el = document.getElementById(hash.substring(1));
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+      closeNav();
+      return;
+    }
+
+    if (currentRenderedRoute !== path || !isAnchor) {
+      app.innerHTML = '<div class="spinner" role="status"><span class="sr-only">Loading...</span></div>';
+      Promise.resolve(renderFn()).then(() => {
+        currentRenderedRoute = path;
+        updateNav();
+        document.querySelectorAll('[data-nav]').forEach(l => {
+          l.removeAttribute('aria-current');
+          if (l.getAttribute('href') === hash || (hash === '' && l.getAttribute('href') === '#/')) {
+            l.setAttribute('aria-current', 'page');
+          }
+        });
+        
+        if (isAnchor) {
+          setTimeout(() => {
+            const el = document.getElementById(hash.substring(1));
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+          }, 100);
+        } else {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         }
       });
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
+    }
   } else {
     if (path !== '/') {
       console.warn(`Route not found: "${path}"`);

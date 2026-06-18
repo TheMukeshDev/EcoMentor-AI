@@ -64,7 +64,8 @@ export function initAuthListener() {
 
 async function syncUserProfile(token) {
   try {
-    const res = await fetch('/api/auth/google', {
+    const apiBase = import.meta.env.VITE_API_URL || '/api';
+    const res = await fetch(`${apiBase}/auth/google`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

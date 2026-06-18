@@ -87,6 +87,19 @@ def csrf_protect(f):
 
 def csrf_token_endpoint():
     uid = getattr(g, "user_id", None)
+    
+    # If uid isn't already set but an Authorization header is provided, try to decode it
+    if not uid:
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            try:
+                id_token = auth_header.split(" ", 1)[1]
+                from firebase_admin import auth as firebase_auth
+                decoded = firebase_auth.verify_id_token(id_token)
+                uid = decoded["uid"]
+            except Exception:
+                pass
+
     token = generate_csrf_token(uid)
     return jsonify(
         {
