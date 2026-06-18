@@ -346,7 +346,7 @@ def chat_stream():
     contents.append({"role": "user", "parts": [{"text": message}]})
 
     system_prompt = "You are EcoMentor, an AI sustainability coach. Help users understand and reduce their carbon footprint. Respond conversationally and helpfully. Keep responses under 150 words."
-    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse"
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:streamGenerateContent?alt=sse"
     headers = {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": api_key,

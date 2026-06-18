@@ -137,7 +137,7 @@ ecomentor-ai/
 
 - **Vanilla JS frontend**: Zero build step for rapid iteration; Vite for dev bundling
 - **Firestore**: Serverless NoSQL; composite indexes for query performance
-- **Gemini 2.0 Flash**: Low latency, cost-effective for real-time coaching
+- **Gemini-3.5 Flash**: Low latency, cost-effective for real-time coaching
 - **Dual cache**: In-memory LRU (hot reads) + Firestore (persistence)
 - **Nonce-based CSRF**: Rotation on each request, 1-hour TTL
 - **Cursor pagination**: Firestore `start_after` for scalable list endpoints
