@@ -24,8 +24,10 @@ _service = AuthService(_user_repo)
 def register():
     data = request.validated_body
     try:
-        user = _service.register_user(data)
-        return success_response(user, 201)
+        result = _service.register_user(data)
+        return success_response(
+            {"id_token": result["id_token"], "profile": result["profile"]}, 201
+        )
     except Exception as e:
         return error_response(str(e), 400)
 
@@ -35,9 +37,10 @@ def register():
 def login():
     data = request.validated_body
     try:
-        uid = _service.authenticate_user(data["id_token"])
-        profile = _service.get_user_profile(uid)
-        return success_response({"uid": uid, "profile": profile})
+        result = _service.login_user(data["email"], data["password"])
+        return success_response(
+            {"id_token": result["id_token"], "profile": result["profile"]}
+        )
     except Exception as e:
         return error_response(str(e), 401)
 

@@ -5,3 +5,4 @@ from app.services.ai_service import AIService
 from app.services.leaderboard_service import LeaderboardService
 from app.services.carbon_service import CarbonService
 from app.services.cache_service import CacheService
+from app.services.prompt_service import PromptService

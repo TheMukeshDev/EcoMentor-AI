@@ -6,13 +6,16 @@ from app.utils.validators import validate_body
 from app.blueprints.activities.schemas import LogActivityRequest
 from app.extensions import db
 from app.repositories.activity_repository import ActivityRepository
+from app.repositories.carbon_history_repository import CarbonHistoryRepository
+from app.repositories.user_repository import UserRepository
 from app.services.activity_service import ActivityService
 
 activities_bp = Blueprint("activities", __name__)
 
 _activity_repo = ActivityRepository(db)
-
-_service = ActivityService(_activity_repo)
+_carbon_history_repo = CarbonHistoryRepository(db)
+_user_repo = UserRepository(db)
+_service = ActivityService(_activity_repo, _carbon_history_repo, _user_repo)
 
 
 @activities_bp.route("", methods=["GET"])
@@ -20,7 +23,8 @@ _service = ActivityService(_activity_repo)
 def list_activities():
     from flask import g
 
-    activities = _service.list_activities(g.user_id)
+    limit = request.args.get("limit", None, type=int)
+    activities = _service.list_activities(g.user_id, limit=limit)
     return success_response(activities)
 
 

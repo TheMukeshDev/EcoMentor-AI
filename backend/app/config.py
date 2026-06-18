@@ -35,6 +35,9 @@ class BaseConfig:
         os.getenv("RATE_LIMIT_STRICT", "10;60"), (10, 60)
     )
 
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+    FIREBASE_API_KEY = os.getenv("FIREBASE_API_KEY", "")
+
 
 class DevelopmentConfig(BaseConfig):
     DEBUG = True

@@ -18,6 +18,26 @@ class TestActivityService:
     def test_log_activity_returns_activity_with_carbon_score(
         self, activity_service, mocker
     ):
+        mocker.patch.object(
+            activity_service._carbon_history_repo,
+            "find_by_user_and_date",
+            return_value=None,
+        )
+        mocker.patch.object(
+            activity_service._streak_service._user_repo,
+            "get",
+            return_value={"streak": 0, "points": 0},
+        )
+        mocker.patch.object(
+            activity_service._points_service._user_repo,
+            "get",
+            return_value={"streak": 0, "points": 0},
+        )
+        mocker.patch.object(
+            activity_service._points_service,
+            "add_points",
+            return_value={"points": 10, "level": "Beginner", "badge": "Seedling"},
+        )
         activity_service._activity_repo.set.return_value = None
         result = activity_service.log_activity(
             "user-123",
@@ -39,6 +59,26 @@ class TestActivityService:
 
     def test_log_activity_stores_in_repo(self, activity_service, mocker):
         mock_set = mocker.patch.object(activity_service._activity_repo, "set")
+        mocker.patch.object(
+            activity_service._carbon_history_repo,
+            "find_by_user_and_date",
+            return_value=None,
+        )
+        mocker.patch.object(
+            activity_service._streak_service._user_repo,
+            "get",
+            return_value={"streak": 0, "points": 0},
+        )
+        mocker.patch.object(
+            activity_service._points_service._user_repo,
+            "get",
+            return_value={"streak": 0, "points": 0},
+        )
+        mocker.patch.object(
+            activity_service._points_service,
+            "add_points",
+            return_value={"points": 10, "level": "Beginner", "badge": "Seedling"},
+        )
         activity_service.log_activity(
             "user-123",
             {
@@ -58,7 +98,7 @@ class TestActivityService:
             activity_service._activity_repo, "find_by_user_id", return_value=[]
         )
         result = activity_service.list_activities("user-123")
-        mock_find.assert_called_once_with("user-123")
+        mock_find.assert_called_once_with("user-123", limit=None)
         assert result == []
 
     def test_get_activity_delegates_to_repo(self, activity_service, mocker):

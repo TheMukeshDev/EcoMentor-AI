@@ -65,6 +65,11 @@ def mock_challenge_repo(mocker):
 
 
 @pytest.fixture
+def mock_carbon_history_repo(mocker):
+    return mocker.MagicMock(name="CarbonHistoryRepository")
+
+
+@pytest.fixture
 def auth_service(mock_user_repo):
     from app.services.auth_service import AuthService
 
@@ -72,27 +77,43 @@ def auth_service(mock_user_repo):
 
 
 @pytest.fixture
-def dashboard_service(mock_footprint_repo, mock_activity_repo):
+def dashboard_service(mock_carbon_history_repo, mock_activity_repo, mock_user_repo):
     from app.services.dashboard_service import DashboardService
 
     return DashboardService(
-        footprint_repository=mock_footprint_repo,
+        carbon_history_repository=mock_carbon_history_repo,
         activity_repository=mock_activity_repo,
+        user_repository=mock_user_repo,
     )
 
 
 @pytest.fixture
-def activity_service(mock_activity_repo):
+def activity_service(mock_activity_repo, mock_carbon_history_repo, mock_user_repo):
     from app.services.activity_service import ActivityService
 
-    return ActivityService(activity_repository=mock_activity_repo)
+    return ActivityService(
+        activity_repository=mock_activity_repo,
+        carbon_history_repository=mock_carbon_history_repo,
+        user_repository=mock_user_repo,
+    )
 
 
 @pytest.fixture
-def ai_service(mock_recommendation_repo):
+def ai_service(mock_carbon_history_repo):
     from app.services.ai_service import AIService
 
-    return AIService(recommendation_repository=mock_recommendation_repo)
+    return AIService(
+        api_key="test-key",
+        ai_report_repository=None,
+    )
+
+
+@pytest.fixture
+def mock_gemini(mocker):
+    return mocker.patch(
+        "app.services.ai_service.AIService._call_gemini",
+        return_value={"test": "response"},
+    )
 
 
 @pytest.fixture

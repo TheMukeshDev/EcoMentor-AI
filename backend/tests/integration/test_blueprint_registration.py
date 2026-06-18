@@ -14,7 +14,7 @@ class TestBlueprintRegistration:
 
         assert "/api/dashboard/summary" in rules
         assert "/api/dashboard/history" in rules
-        assert "/api/dashboard/stats" in rules
+        assert "/api/dashboard/trends" in rules
 
     def test_activities_blueprint_has_expected_routes(self, app):
         rules = [rule.rule for rule in app.url_map.iter_rules()]
@@ -26,8 +26,9 @@ class TestBlueprintRegistration:
         rules = [rule.rule for rule in app.url_map.iter_rules()]
 
         assert "/api/ai/recommendations" in rules
-        assert "/api/ai/insights" in rules
-        assert "/api/ai/chat" in rules
+        assert "/api/ai/weekly-report" in rules
+        assert "/api/ai/eco-personality" in rules
+        assert "/api/ai/daily-mission" in rules
 
     def test_leaderboard_blueprint_has_expected_routes(self, app):
         rules = [rule.rule for rule in app.url_map.iter_rules()]

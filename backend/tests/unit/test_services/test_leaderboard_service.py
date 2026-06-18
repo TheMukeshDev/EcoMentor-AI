@@ -10,10 +10,10 @@ class TestLeaderboardService:
         for name in methods:
             assert hasattr(leaderboard_service, name)
 
-    def test_get_global_leaderboard_returns_none(self, leaderboard_service):
+    def test_get_global_leaderboard_returns_list(self, leaderboard_service):
         result = leaderboard_service.get_global_leaderboard()
-        assert result is None
+        assert result == []
 
-    def test_get_friends_leaderboard_returns_none(self, leaderboard_service):
+    def test_get_friends_leaderboard_returns_list(self, leaderboard_service):
         result = leaderboard_service.get_friends_leaderboard("user-123")
-        assert result is None
+        assert result == []
