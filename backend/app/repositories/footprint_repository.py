@@ -8,11 +8,13 @@ class FootprintRepository(BaseRepository):
         super().__init__(db, "footprints")
 
     def find_by_user_id(self, user_id, limit=None):
-        return self.query(
+        results = self.query(
             filters=[("uid", "==", user_id)],
-            order_by=("created_at", "DESCENDING"),
-            limit=limit,
         )
+        results.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+        if limit is not None:
+            results = results[:limit]
+        return results
 
     def find_latest_by_user(self, user_id):
         results = self.find_by_user_id(user_id, limit=1)

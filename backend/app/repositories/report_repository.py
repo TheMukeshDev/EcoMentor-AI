@@ -6,4 +6,6 @@ class ReportRepository(BaseRepository):
         super().__init__(db, "reports")
 
     def find_by_user_id(self, user_id):
-        return self.query(filters=[("uid", "==", user_id)], order_by="generated_at")
+        results = self.query(filters=[("uid", "==", user_id)])
+        results.sort(key=lambda x: x.get("generated_at", ""), reverse=False)
+        return results

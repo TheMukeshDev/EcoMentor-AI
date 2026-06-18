@@ -9,20 +9,25 @@ class AIReportRepository(BaseRepository):
 
     def find_valid_by_user_and_type(self, user_id, report_type):
         now = datetime.now(timezone.utc).isoformat()
-        return self.query(
+        results = self.query(
             filters=[
                 ("uid", "==", user_id),
                 ("type", "==", report_type),
-                ("expires_at", ">=", now),
             ],
-            order_by="generated_at",
         )
+        filtered = [
+            r for r in results 
+            if r.get("expires_at", "") >= now
+        ]
+        filtered.sort(key=lambda x: x.get("generated_at", ""), reverse=False)
+        return filtered
 
     def find_by_user_and_type(self, user_id, report_type):
-        return self.query(
+        results = self.query(
             filters=[
                 ("uid", "==", user_id),
                 ("type", "==", report_type),
             ],
-            order_by="generated_at",
         )
+        results.sort(key=lambda x: x.get("generated_at", ""), reverse=False)
+        return results
