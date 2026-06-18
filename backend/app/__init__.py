@@ -1,52 +1,134 @@
-import logging
-import sys
+"""EcoMentor AI application factory.
 
-from flask import Flask, request, jsonify
+Creates and configures the Flask application with all extensions,
+blueprints, middleware, and error handlers.
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+import sys
+from typing import Any
+
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 from app.config import config_by_name
 from app.extensions import init_firestore
-from app.utils.errors import AppError
+from app.middleware.errors import register_error_handlers
 from app.utils.secrets import validate_required_secrets
 from app.middleware.csrf import csrf_token_endpoint
 from app.utils.rate_limiter import rate_limiter
 
 
-def create_app(config_name=None):
+def create_app(config_name: str | None = None) -> Flask:
+    """Create and configure the Flask application.
+
+    Args:
+        config_name: One of 'development', 'testing', 'production'.
+
+    Returns:
+        Configured Flask application instance.
+
+    Raises:
+        RuntimeError: If required environment variables are missing.
+    """
     if config_name is None:
-        config_name = "development"
+        config_name = os.getenv("APP_ENV", "development")
 
     app = Flask(__name__)
     app.config.from_object(config_by_name[config_name])
 
-    setup_logging(app)
-    setup_extensions(app)
-    register_blueprints(app)
+    _setup_logging(app)
+    _setup_extensions(app, config_name)
+    _register_blueprints(app)
     register_error_handlers(app)
-    register_request_hooks(app)
-    register_additional_routes(app)
+    _register_request_hooks(app)
+    _register_additional_routes(app)
 
     return app
 
 
-def setup_logging(app):
+def _setup_logging(app: Flask) -> None:
+    """Configure structured logging for the application.
+
+    Args:
+        app: The Flask application instance.
+    """
     handler = logging.StreamHandler(sys.stdout)
-    handler.setLevel(logging.DEBUG if app.debug else logging.INFO)
+    level = logging.DEBUG if app.debug else logging.INFO
+    handler.setLevel(level)
     handler.setFormatter(
         logging.Formatter("[%(asctime)s] %(levelname)s %(name)s: %(message)s")
     )
     app.logger.addHandler(handler)
-    app.logger.setLevel(logging.DEBUG if app.debug else logging.INFO)
+    app.logger.setLevel(level)
 
 
-def setup_extensions(app):
+def _setup_extensions(app: Flask, config_name: str) -> None:
+    """Initialize Flask extensions in correct order.
+
+    Args:
+        app: The Flask application instance.
+        config_name: The configuration environment name.
+    """
     validate_required_secrets(app)
+
     CORS(app, origins=app.config.get("CORS_ORIGINS", ["*"]))
+
+    # Flask-Talisman: security headers (skip in testing)
+    if config_name != "testing":
+        _setup_talisman(app, config_name)
+
     init_firestore(app)
 
 
-def register_blueprints(app):
-    blueprints = [
+def _setup_talisman(app: Flask, config_name: str) -> None:
+    """Configure Flask-Talisman for security headers.
+
+    Args:
+        app: The Flask application instance.
+        config_name: The configuration environment name.
+    """
+    try:
+        from flask_talisman import Talisman
+
+        csp = {
+            "default-src": "'self'",
+            "script-src": "'self' https://www.gstatic.com",
+            "style-src": "'self' 'unsafe-inline' https://fonts.googleapis.com",
+            "font-src": "'self' https://fonts.gstatic.com",
+            "img-src": "'self' data:",
+            "connect-src": (
+                "'self' "
+                "https://identitytoolkit.googleapis.com "
+                "https://securetoken.googleapis.com"
+            ),
+        }
+
+        force_https = config_name == "production"
+
+        Talisman(
+            app,
+            content_security_policy=csp,
+            strict_transport_security=True,
+            strict_transport_security_max_age=31536000,
+            strict_transport_security_include_subdomains=True,
+            force_https=force_https,
+            session_cookie_secure=force_https,
+        )
+    except ImportError:
+        app.logger.warning("flask-talisman not installed, skipping")
+
+
+def _register_blueprints(app: Flask) -> None:
+    """Register all API blueprints with the application.
+
+    Args:
+        app: The Flask application instance.
+    """
+    blueprints: list[tuple[str, str]] = [
         ("auth", "/api/auth"),
         ("dashboard", "/api/dashboard"),
         ("activities", "/api/activities"),
@@ -55,81 +137,84 @@ def register_blueprints(app):
     ]
 
     for name, prefix in blueprints:
-        module = __import__(f"app.blueprints.{name}.routes", fromlist=["routes"])
+        module = __import__(
+            f"app.blueprints.{name}.routes", fromlist=["routes"]
+        )
         blueprint = getattr(module, f"{name}_bp")
         app.register_blueprint(blueprint, url_prefix=prefix)
 
 
-def register_error_handlers(app):
-    @app.errorhandler(AppError)
-    def handle_app_error(error):
-        return jsonify(
-            {
-                "status": "error",
-                "message": error.message,
-            }
-        ), error.status_code
+def _register_request_hooks(app: Flask) -> None:
+    """Register before/after request hooks.
 
-    @app.errorhandler(404)
-    def handle_not_found(error):
-        return jsonify(
-            {
-                "status": "error",
-                "message": "Resource not found",
-            }
-        ), 404
+    Args:
+        app: The Flask application instance.
+    """
 
-    @app.errorhandler(405)
-    def handle_method_not_allowed(error):
-        return jsonify(
-            {
-                "status": "error",
-                "message": "Method not allowed",
-            }
-        ), 405
-
-    @app.errorhandler(500)
-    def handle_internal_error(error):
-        app.logger.exception("Internal server error")
-        return jsonify(
-            {
-                "status": "error",
-                "message": "Internal server error",
-            }
-        ), 500
-
-
-def register_request_hooks(app):
     @app.before_request
-    def apply_global_rate_limit():
+    def apply_global_rate_limit() -> Any:
+        """Enforce global rate limiting on all requests."""
         capacity = app.config.get("RATE_LIMIT_GLOBAL_CAPACITY", 1000)
         refill = app.config.get("RATE_LIMIT_GLOBAL_REFILL", 10)
-        if not rate_limiter._get_bucket("global:all", capacity, refill).allow():
-            return jsonify({"status": "error", "message": "Too many requests"}), 429
+        bucket = rate_limiter._get_bucket("global:all", capacity, refill)
+        if not bucket.allow():
+            return jsonify({
+                "status": "error",
+                "message": "Too many requests",
+            }), 429
 
     @app.before_request
-    def log_request():
+    def log_request() -> None:
+        """Log incoming requests at DEBUG level."""
         app.logger.debug("%s %s", request.method, request.path)
 
     @app.after_request
-    def add_security_headers(response):
+    def add_security_headers(response: Any) -> Any:
+        """Add security headers to every response.
+
+        Args:
+            response: The Flask response object.
+
+        Returns:
+            Modified response with security headers.
+        """
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; script-src 'self' https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = (
+            "camera=(), microphone=(), geolocation=()"
         )
         return response
 
     @app.teardown_appcontext
-    def shutdown_session(exception=None):
+    def shutdown_session(exception: BaseException | None = None) -> None:
+        """Clean up resources on app context teardown.
+
+        Args:
+            exception: Optional exception that triggered teardown.
+        """
         pass
 
 
-def register_additional_routes(app):
+def _register_additional_routes(app: Flask) -> None:
+    """Register standalone routes not tied to blueprints.
+
+    Args:
+        app: The Flask application instance.
+    """
     app.add_url_rule(
         "/api/auth/csrf-token",
         "csrf_token",
         csrf_token_endpoint,
         methods=["GET"],
     )
+
+    @app.route("/health")
+    def health() -> dict[str, str]:
+        """Health check endpoint for load balancers.
+
+        Returns:
+            Dict with status key.
+        """
+        return {"status": "healthy"}

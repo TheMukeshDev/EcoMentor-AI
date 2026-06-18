@@ -100,8 +100,21 @@ class ActivityService:
     def list_activities(self, user_id, limit=None, cursor=None):
         return self._activity_repo.find_by_user_id(user_id, limit=limit, cursor=cursor)
 
-    def get_activity(self, activity_id):
-        return self._activity_repo.get(activity_id)
+    def get_activity(self, activity_id, user_id=None):
+        activity = self._activity_repo.get(activity_id)
+        if not activity:
+            return None
+        if user_id and activity.get("uid") != user_id:
+            from app.utils.errors import AuthorizationError
+            raise AuthorizationError("Permission denied")
+        return activity
 
-    def delete_activity(self, activity_id):
+    def delete_activity(self, activity_id, user_id=None):
+        activity = self._activity_repo.get(activity_id)
+        if not activity:
+            from app.utils.errors import NotFoundError
+            raise NotFoundError("Activity not found")
+        if user_id and activity.get("uid") != user_id:
+            from app.utils.errors import AuthorizationError
+            raise AuthorizationError("Permission denied")
         self._activity_repo.delete(activity_id)

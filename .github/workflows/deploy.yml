@@ -14,8 +14,88 @@ env:
   REGION: us-central1
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Ruff
+        run: pip install ruff
+
+      - name: Lint backend
+        run: ruff check backend/
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+  test:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install backend dependencies
+        run: |
+          pip install -r requirements.txt
+        working-directory: backend
+
+      - name: Run backend tests
+        run: pytest --cov=app --cov-report=term-missing --cov-fail-under=90
+        working-directory: backend
+        env:
+          APP_ENV: testing
+          SECRET_KEY: test-secret-key-ci
+          FIRESTORE_EMULATOR_HOST: localhost:8080
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Run frontend tests
+        run: npx vitest run
+        working-directory: frontend
+
+  security:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Bandit
+        run: pip install bandit
+
+      - name: Run security scan
+        run: bandit -r backend/app/ -ll -ii
+
   deploy-backend:
     runs-on: ubuntu-latest
+    needs: [test, security]
     defaults:
       run:
         working-directory: backend
@@ -48,6 +128,7 @@ jobs:
 
   deploy-frontend:
     runs-on: ubuntu-latest
+    needs: [test, security]
     defaults:
       run:
         working-directory: frontend

@@ -7,8 +7,8 @@
   --color-surface: #ffffff;
   --color-surface-hover: #f8fdfa;
   --color-text: #1b4332;
-  --color-text-secondary: #2d3748;
-  --color-text-muted: #4a5568;
+  --color-text-secondary: #1a202c;
+  --color-text-muted: #374151;
   --color-border: #cbd5e0;
   --color-error: #b91c1c;
   --color-error-bg: #fee2e2;
@@ -40,8 +40,8 @@
   --color-surface: #1e293b;
   --color-surface-hover: #334155;
   --color-text: #e2e8f0;
-  --color-text-secondary: #94a3b8;
-  --color-text-muted: #64748b;
+  --color-text-secondary: #cbd5e1;
+  --color-text-muted: #94a3b8;
   --color-border: #334155;
   --color-error: #f87171;
   --color-error-bg: #451a1a;

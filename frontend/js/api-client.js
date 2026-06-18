@@ -11,7 +11,7 @@ export function setAuthHandlers(handlers) {
 }
 
 export async function api(path, options = {}) {
-  const token = localStorage.getItem('id_token') || await getCurrentToken();
+  const token = await getCurrentToken() || localStorage.getItem('id_token');
   const headers = { 'Content-Type': 'application/json', ...options.headers };
   if (token) headers['Authorization'] = `Bearer ${token}`;
   if (csrfToken && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(options.method || '')) {

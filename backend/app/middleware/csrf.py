@@ -32,8 +32,11 @@ def validate_csrf_token(token, secret, user_id=None):
         ).hexdigest()
         if not hmac.compare_digest(signature, expected):
             return False
-        if uid_part and user_id and uid_part != user_id:
+        
+        # Enforce that uid_part in the CSRF token matches the current authenticated user state
+        if (uid_part or "") != (user_id or ""):
             return False
+            
         token_time = int(timestamp)
         if time.time() - token_time > CSRF_TOKEN_TTL:
             return False

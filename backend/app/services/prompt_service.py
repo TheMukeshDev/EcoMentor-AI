@@ -29,7 +29,7 @@ class PromptService:
             else f"Suggest ways to maintain their good habits in {best}"
         )
 
-        prompt = f"""You are an AI sustainability coach. Generate 3 personalized carbon reduction recommendations based on this user data:
+        prompt = f"""You are an AI sustainability coach. Generate personalized carbon reduction recommendations based on this user data:
 - Carbon score: {data.get("score", 0)}/100
 - Transport: {sanitize_input(data.get("transport", "unknown"))}
 - Food: {sanitize_input(data.get("food", "unknown"))}
@@ -42,15 +42,15 @@ class PromptService:
 - Area to improve: {worst}
 
 Rules:
-- Each tip under 80 characters
 - Focus on practical, college-student-friendly actions
 - If user is Beginner, suggest simple entry-level actions
 - If user has high streak or advanced level, suggest more impactful changes
 - {focus_hint}
-- Return ONLY valid JSON array of strings
-
-Example:
-["Tip one here", "Tip two here", "Tip three here"]"""
+- Return ONLY valid JSON with these exact keys:
+{{
+  "tips": ["Tip one under 80 chars", "Tip two under 80 chars", "Tip three under 80 chars"],
+  "projected_weekly_savings_kg": 0.0
+}}"""
         return prompt
 
     def weekly_report(self, user_context):
@@ -72,7 +72,8 @@ Return ONLY valid JSON with these exact keys:
   "biggest_contributor": "category name",
   "best_improvement": "description",
   "next_week_goal": "achievable goal",
-  "summary": "2-3 sentence motivational summary"
+  "summary": "2-3 sentence motivational summary",
+  "carbon_reduction_target_kg": 0.0
 }}
 
 Keep each field under 120 characters. Focus on data-driven insights."""
@@ -167,7 +168,14 @@ Rules:
 Coaching tone: {tone}. {trend_note}
 User message: {sanitize_input(user_message, 1000)}
 
-Respond conversationally and helpfully. Keep responses under 150 words. Reference the user's trend and categories when relevant. If asked something outside sustainability, gently steer back. Return ONLY a JSON object with a single "response" field containing your reply."""
+Respond conversationally and helpfully. Keep responses under 150 words. Reference the user's trend and categories when relevant. If asked something outside sustainability, gently steer back.
+
+Return ONLY a JSON object with these exact keys:
+{{
+  "response": "conversational text response",
+  "carbon_reduction_actionable": "one actionable tip to reduce carbon footprint",
+  "estimated_reduction_kg": 0.0
+}}"""
 
         return prompt
 
@@ -187,12 +195,13 @@ Proposed change:
 
 User level: {sanitize_input(user_context.get("level", "Beginner"))}
 
-Return ONLY valid JSON:
+Return ONLY valid JSON with these exact keys:
 {{
   "estimated_impact": "positive or negative",
   "carbon_saved": 0.0,
   "comparison": "brief comparison to current (reference baseline: {carbon_estimate} kg CO2e)",
-  "tip": "one practical suggestion"
+  "tip": "one practical suggestion",
+  "savings_forecast_30_days": 0.0
 }}
 
 Use the baseline carbon estimate ({carbon_estimate} kg CO2e) to calculate realistic savings. Be conservative. Focus on realistic outcomes."""
@@ -215,3 +224,28 @@ Return ONLY valid JSON:
 
 Keep each field under 120 characters."""
         return prompt
+
+    def carbon_savings_forecast(self, weekly_avg, level, tips):
+        prompt = f"""You are an AI sustainability forecaster. Generate a carbon savings projection.
+
+Current weekly footprint: {weekly_avg} kg CO2e
+User level: {level}
+Personalized tips: {json.dumps(tips)}
+
+Return ONLY valid JSON with these exact keys:
+{{
+  "current_weekly_footprint_kg": {weekly_avg},
+  "forecast_1_month_kg": 0.0,
+  "forecast_3_months_kg": 0.0,
+  "forecast_6_months_kg": 0.0,
+  "motivation_message": "motivational string"
+}}
+
+Rules:
+- forecast_1_month_kg: Projected carbon savings over 1 month if they follow the tips.
+- forecast_3_months_kg: Projected carbon savings over 3 months.
+- forecast_6_months_kg: Projected carbon savings over 6 months.
+- Be realistic and conservative based on the tips and their current footprint.
+"""
+        return prompt
+

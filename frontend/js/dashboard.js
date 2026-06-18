@@ -1,6 +1,7 @@
 import { api, toast, registerRoute, htmlEscape } from './main.js';
 import { apiGetCached, clearCache } from './api-client.js';
 import { getState, subscribe } from './store.js';
+import { onBeforeRouteChange } from './router.js';
 import { dashboardSkeleton } from './skeletons.js';
 
 let dashboardCharts = {};
@@ -263,8 +264,8 @@ function renderRecs(recs) {
     const title = r.title || r.recommendation || r.tip || 'Eco tip';
     const impact = (r.impact || 'Medium').toLowerCase();
     const difficulty = (r.difficulty || 'Easy').toLowerCase();
-    const co2 = r.co2 || r.estimated_savings || `${Math.floor(Math.random() * 15) + 3} kg`;
-    const points = r.points || r.reward || Math.floor(Math.random() * 50) + 20;
+    const co2 = r.co2 || r.estimated_savings || '';
+    const points = r.points || r.reward || 0;
     return `
       <div class="recommendation-card">
         <div class="recommendation-title">${htmlEscape(title)}</div>
@@ -272,19 +273,19 @@ function renderRecs(recs) {
           <span class="recommendation-tag impact-${impact}">&#9650; ${impact} Impact</span>
           <span class="recommendation-tag difficulty-${difficulty}">${difficulty === 'easy' ? '&#9989;' : difficulty === 'medium' ? '&#9888;' : '&#128170;'} ${difficulty}</span>
         </div>
-        <div class="recommendation-savings">
-          <span class="recommendation-co2">&#127807; ${htmlEscape(co2)} CO&#8322;</span>
-          <span class="recommendation-points">&#11088; +${points} pts</span>
-        </div>
+        ${co2 || points ? `<div class="recommendation-savings">
+          ${co2 ? `<span class="recommendation-co2">&#127807; ${htmlEscape(co2)} CO&#8322;</span>` : ''}
+          ${points ? `<span class="recommendation-points">&#11088; +${points} pts</span>` : ''}
+        </div>` : ''}
       </div>`;
   }).join('');
 }
 
 function getDefaultRecs() {
   return [
-    { title: 'Use public transport twice this week', impact: 'High', difficulty: 'Easy', co2: '8 kg', points: 50 },
-    { title: 'Switch to LED bulbs', impact: 'Medium', difficulty: 'Easy', co2: '5 kg', points: 30 },
-    { title: 'Reduce food waste by meal planning', impact: 'High', difficulty: 'Medium', co2: '12 kg', points: 70 },
+    { title: 'Use public transport twice this week', impact: 'High', difficulty: 'Easy' },
+    { title: 'Switch to LED bulbs', impact: 'Medium', difficulty: 'Easy' },
+    { title: 'Reduce food waste by meal planning', impact: 'High', difficulty: 'Medium' },
   ];
 }
 
@@ -420,15 +421,32 @@ function getCSSVar(name, fallback) {
 
 function renderTrendChart(history) {
   const canvas = document.getElementById('trendChart');
-  if (!canvas) return;
+  const wrapper = canvas?.parentElement;
+  if (!wrapper) return;
   if (dashboardCharts.trend) { dashboardCharts.trend.destroy(); delete dashboardCharts.trend; }
+  
+  if (!history || history.length === 0) {
+    wrapper.innerHTML = `
+      <div class="empty-state-small" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding:20px;color:var(--color-text-muted)">
+        <span style="font-size:2rem;margin-bottom:8px">&#128200;</span>
+        <p style="font-size:0.9rem;margin-bottom:12px">No carbon history data logged yet.</p>
+        <a href="#/log" class="btn btn-primary" style="padding:6px 12px;font-size:0.8rem">Log Activity</a>
+      </div>
+    `;
+    return;
+  }
+
+  if (!document.getElementById('trendChart')) {
+    wrapper.innerHTML = '<canvas id="trendChart" role="img" aria-label="Eco score trend over time"></canvas>';
+  }
+  const activeCanvas = document.getElementById('trendChart');
   const labels = history.map(e => (e.date || '').slice(5));
   const scores = history.map(e => e.carbon_score || 0);
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   const primary = getCSSVar('--color-primary', '#2d6a4f');
   const muted = getCSSVar('--color-text-muted', '#718096');
   import('chart.js').then(({ default: Chart }) => {
-    dashboardCharts.trend = new Chart(canvas.getContext('2d'), {
+    dashboardCharts.trend = new Chart(activeCanvas.getContext('2d'), {
       type: 'line',
       data: { labels, datasets: [{ label: 'Eco Score', data: scores, borderColor: primary, backgroundColor: isDark ? 'rgba(82,183,136,0.15)' : 'rgba(45,106,79,0.1)', fill: true, tension: 0.4, pointRadius: 3, pointHoverRadius: 5 }] },
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }, ticks: { color: muted } }, x: { grid: { display: false }, ticks: { color: muted } } } },
@@ -438,17 +456,34 @@ function renderTrendChart(history) {
 
 function renderCategoryChart(history) {
   const canvas = document.getElementById('categoryChart');
-  if (!canvas) return;
+  const wrapper = canvas?.parentElement;
+  if (!wrapper) return;
   if (dashboardCharts.category) { dashboardCharts.category.destroy(); delete dashboardCharts.category; }
+
+  if (!history || history.length === 0) {
+    wrapper.innerHTML = `
+      <div class="empty-state-small" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding:20px;color:var(--color-text-muted)">
+        <span style="font-size:2rem;margin-bottom:8px">&#128173;</span>
+        <p style="font-size:0.9rem;margin-bottom:12px">No categories tracked yet.</p>
+        <a href="#/log" class="btn btn-primary" style="padding:6px 12px;font-size:0.8rem">Log Activity</a>
+      </div>
+    `;
+    return;
+  }
+
+  if (!document.getElementById('categoryChart')) {
+    wrapper.innerHTML = '<canvas id="categoryChart" role="img" aria-label="Carbon breakdown by category"></canvas>';
+  }
+  const activeCanvas = document.getElementById('categoryChart');
   const categories = ['Transport', 'Food', 'Electricity', 'Lifestyle'];
   const colors = ['#2d6a4f', '#d97706', '#2563eb', '#7c3aed'];
   const data = categories.map(cat => {
     const vals = history.map(e => e[cat.toLowerCase()] || 0);
-    return vals.length ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1) : Math.floor(Math.random() * 30) + 10;
+    return vals.length ? (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1) : 0;
   });
   const muted = getCSSVar('--color-text-muted', '#718096');
   import('chart.js').then(({ default: Chart }) => {
-    dashboardCharts.category = new Chart(canvas.getContext('2d'), {
+    dashboardCharts.category = new Chart(activeCanvas.getContext('2d'), {
       type: 'doughnut',
       data: { labels: categories, datasets: [{ data, backgroundColor: colors.map(c => c + 'CC'), borderColor: colors, borderWidth: 2 }] },
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: muted, font: { size: 11 }, padding: 12 } } }, cutout: '65%' },
@@ -458,13 +493,30 @@ function renderCategoryChart(history) {
 
 function renderComparisonChart(history) {
   const canvas = document.getElementById('comparisonChart');
-  if (!canvas) return;
+  const wrapper = canvas?.parentElement;
+  if (!wrapper) return;
   if (dashboardCharts.comparison) { dashboardCharts.comparison.destroy(); delete dashboardCharts.comparison; }
+
+  if (!history || history.length === 0) {
+    wrapper.innerHTML = `
+      <div class="empty-state-small" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding:20px;color:var(--color-text-muted)">
+        <span style="font-size:2rem;margin-bottom:8px">&#128202;</span>
+        <p style="font-size:0.9rem;margin-bottom:12px">No comparison data available.</p>
+        <a href="#/log" class="btn btn-primary" style="padding:6px 12px;font-size:0.8rem">Log Activity</a>
+      </div>
+    `;
+    return;
+  }
+
+  if (!document.getElementById('comparisonChart')) {
+    wrapper.innerHTML = '<canvas id="comparisonChart" role="img" aria-label="Weekly carbon comparison"></canvas>';
+  }
+  const activeCanvas = document.getElementById('comparisonChart');
   const labels = history.map(e => (e.date || '').slice(5));
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   const muted = getCSSVar('--color-text-muted', '#718096');
   import('chart.js').then(({ default: Chart }) => {
-    dashboardCharts.comparison = new Chart(canvas.getContext('2d'), {
+    dashboardCharts.comparison = new Chart(activeCanvas.getContext('2d'), {
       type: 'bar',
       data: {
         labels,
@@ -484,10 +536,10 @@ function renderComparisonChart(history) {
 }
 
 let _unsubProfile;
-function unsubscribeDashboard() {
+
+onBeforeRouteChange(() => {
   if (_unsubProfile) { _unsubProfile(); _unsubProfile = null; }
-}
-window.unsubscribeDashboard = unsubscribeDashboard;
+});
 
 _unsubProfile = subscribe('user_profile', () => {
   const hash = window.location.hash;

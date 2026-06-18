@@ -62,24 +62,76 @@ class AIService:
         if cached:
             return cached
 
+        # Rule engine shortcut: if no scores/history, return standard tips
+        if data.get("score", 0) == 0 and data.get("weekly_avg", 0) == 0:
+            default_tips = {
+                "tips": [
+                    "Log transport activities like walking, biking, or taking bus.",
+                    "Track your electricity consumption and appliance usage.",
+                    "Log dietary choices like vegetarian or vegan options."
+                ],
+                "projected_weekly_savings_kg": 0.0
+            }
+            return default_tips
+
         prompt = self._prompts.recommendations(data)
         result = self._call_gemini(prompt, deterministic=True)
-        if result:
-            self._cache.set(user_id, "recommendations", result)
-            return result
-        return _FALLBACKS["recommendations"]
+        
+        from app.blueprints.ai.schemas import GeminiRecommendationsResponse
+        try:
+            if result and isinstance(result, dict):
+                validated = GeminiRecommendationsResponse(**result)
+                validated_dict = validated.model_dump()
+                self._cache.set(user_id, "recommendations", validated_dict)
+                return validated_dict
+        except Exception as e:
+            logger.warning("Pydantic validation failed for recommendations: %s", e)
+
+        fallback_tips = {
+            "tips": [
+                f"Reduce {data.get('worst_category', 'transport')} emissions by optimizing daily routines",
+                "Try walking or cycling for trips under 2 km",
+                "Unplug devices when not in use to reduce standby electricity"
+            ],
+            "projected_weekly_savings_kg": 2.5
+        }
+        return fallback_tips
 
     def get_weekly_report(self, user_id, user_context):
         cached = self._cache.get(user_id, "weekly_report")
         if cached:
             return cached
 
+        # Rule engine shortcut: if no activities logged
+        if user_context.get("activity_count", 0) == 0:
+            return {
+                "biggest_contributor": "None",
+                "best_improvement": "No activities logged yet",
+                "next_week_goal": "Log your first activity to start tracking",
+                "summary": "Log daily activities to see carbon reduction insights.",
+                "carbon_reduction_target_kg": 0.0
+            }
+
         prompt = self._prompts.weekly_report(user_context)
         result = self._call_gemini(prompt, deterministic=True)
-        if result:
-            self._cache.set(user_id, "weekly_report", result)
-            return result
-        return _FALLBACKS["weekly_report"]
+
+        from app.blueprints.ai.schemas import GeminiWeeklyReportResponse
+        try:
+            if result and isinstance(result, dict):
+                validated = GeminiWeeklyReportResponse(**result)
+                validated_dict = validated.model_dump()
+                self._cache.set(user_id, "weekly_report", validated_dict)
+                return validated_dict
+        except Exception as e:
+            logger.warning("Pydantic validation failed for weekly_report: %s", e)
+
+        return {
+            "biggest_contributor": user_context.get("worst_category", "Transport"),
+            "best_improvement": "Starting consistent tracking habits",
+            "next_week_goal": "Log daily activities and reduce score by 5%",
+            "summary": "Consistent logging helps identify patterns and opportunities for improvement.",
+            "carbon_reduction_target_kg": 3.0
+        }
 
     def get_eco_personality(self, user_id, user_context):
         cached = self._cache.get(user_id, "eco_personality")
@@ -88,10 +140,17 @@ class AIService:
 
         prompt = self._prompts.eco_personality(user_context)
         result = self._call_gemini(prompt, deterministic=True)
-        if result:
+
+        if result and isinstance(result, dict) and "personality" in result:
             self._cache.set(user_id, "eco_personality", result)
             return result
-        return _FALLBACKS["eco_personality"]
+
+        return {
+            "personality": "Eco Novice",
+            "strength": "High potential for green actions",
+            "weakness": "Lacks consistent tracking history",
+            "next_goal": "Log at least 3 activities this week"
+        }
 
     def get_daily_mission(self, user_id, user_context):
         cached = self._cache.get(user_id, "daily_mission")
@@ -100,10 +159,44 @@ class AIService:
 
         prompt = self._prompts.daily_mission(user_context)
         result = self._call_gemini(prompt, deterministic=True)
-        if result:
+
+        if result and isinstance(result, dict) and "challenge" in result:
             self._cache.set(user_id, "daily_mission", result)
             return result
-        return _FALLBACKS["daily_mission"]
+
+        return {
+            "challenge": "Walk or bike for all trips under 2 km today",
+            "reward": 50
+        }
+
+    def get_carbon_savings_forecast(self, user_id, user_context, tips):
+        cached = self._cache.get(user_id, "carbon_savings_forecast")
+        if cached:
+            return cached
+
+        weekly_avg = user_context.get("weekly_avg", 0.0)
+        level = user_context.get("level", "Beginner")
+
+        prompt = self._prompts.carbon_savings_forecast(weekly_avg, level, tips)
+        result = self._call_gemini(prompt, deterministic=True)
+
+        from app.blueprints.ai.schemas import CarbonSavingsForecastResponse
+        try:
+            if result and isinstance(result, dict):
+                validated = CarbonSavingsForecastResponse(**result)
+                validated_dict = validated.model_dump()
+                self._cache.set(user_id, "carbon_savings_forecast", validated_dict)
+                return validated_dict
+        except Exception as e:
+            logger.warning("Pydantic validation failed for savings forecast: %s", e)
+
+        return {
+            "current_weekly_footprint_kg": weekly_avg,
+            "forecast_1_month_kg": round(weekly_avg * 0.10 * 4, 2),
+            "forecast_3_months_kg": round(weekly_avg * 0.12 * 12, 2),
+            "forecast_6_months_kg": round(weekly_avg * 0.15 * 24, 2),
+            "motivation_message": "Log daily activities and follow recommendations to achieve these carbon savings!"
+        }
 
     def _summarize_and_compact(self, user_id):
         history = self._conversations.get(user_id, [])
@@ -150,10 +243,22 @@ class AIService:
             )
 
     def chat(self, user_id, user_message, user_context):
+        lower_msg = user_message.lower().strip()
+        if lower_msg in ("hello", "hi", "hey", "greetings"):
+            return {
+                "response": "Hello! I'm EcoMentor, your AI sustainability coach. How can I help you reduce your carbon footprint today?",
+                "carbon_reduction_actionable": "Start by logging your transport or diet activities today.",
+                "estimated_reduction_kg": 0.0
+            }
+
         safety = check_input_safety(user_message)
         if not safety["safe"]:
             logger.warning("Unsafe chat input from %s: %s", user_id, safety["issues"])
-            return "I'm here to discuss sustainability and eco-friendly topics. Let's keep our conversation focused on reducing your carbon footprint!"
+            return {
+                "response": "I'm here to discuss sustainability and eco-friendly topics. Let's keep our conversation focused on reducing your carbon footprint!",
+                "carbon_reduction_actionable": "Keep discussions green and positive.",
+                "estimated_reduction_kg": 0.0
+            }
 
         self._ensure_conversation_loaded(user_id)
         history = self._conversations[user_id]
@@ -161,27 +266,43 @@ class AIService:
         history = self._conversations[user_id]
         prompt = self._prompts.chat_response(user_message, user_context, history)
         result = self._call_gemini(prompt)
-        if result and isinstance(result, dict) and "response" in result:
-            clean_response = filter_unsafe_output(result["response"])
-            history.append(
-                {
-                    "role": "user",
-                    "content": user_message,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                }
-            )
-            history.append(
-                {
-                    "role": "assistant",
-                    "content": clean_response,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                }
-            )
-            if len(history) > 50:
-                self._conversations[user_id] = history[-50:]
-            self._persist_conversation(user_id, history)
-            return clean_response
-        return "I'm here to help with your sustainability questions. Could you rephrase that?"
+
+        from app.blueprints.ai.schemas import GeminiChatResponse
+        validated_dict = None
+        try:
+            if result and isinstance(result, dict):
+                if "response" in result:
+                    result["response"] = filter_unsafe_output(result["response"])
+                validated = GeminiChatResponse(**result)
+                validated_dict = validated.model_dump()
+        except Exception as e:
+            logger.warning("Pydantic validation failed for chat: %s", e)
+
+        if not validated_dict:
+            validated_dict = {
+                "response": "I'm here to help with your sustainability questions. Could you rephrase that?",
+                "carbon_reduction_actionable": "Log your daily actions to track carbon footprint.",
+                "estimated_reduction_kg": 0.1
+            }
+
+        history.append(
+            {
+                "role": "user",
+                "content": user_message,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+        history.append(
+            {
+                "role": "assistant",
+                "content": validated_dict["response"],
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+        if len(history) > 50:
+            self._conversations[user_id] = history[-50:]
+        self._persist_conversation(user_id, self._conversations[user_id])
+        return validated_dict
 
     def get_conversation_history(self, user_id):
         self._ensure_conversation_loaded(user_id)
@@ -249,15 +370,24 @@ class AIService:
             current_data, scenario_changes, user_context
         )
         result = self._call_gemini(prompt, deterministic=True)
-        if result:
-            return result
+        
+        from app.blueprints.ai.schemas import GeminiWhatsIfResponse
+        try:
+            if result and isinstance(result, dict):
+                validated = GeminiWhatsIfResponse(**result)
+                return validated.model_dump()
+        except Exception as e:
+            logger.warning("Pydantic validation failed for whats_if: %s", e)
+
         carbon_est = self._estimate_carbon(current_data)
         return {
             "estimated_impact": "positive",
             "carbon_saved": round(carbon_est * 0.15, 2),
-            "comparison": "Estimated 15% reduction based on typical changes",
+            "comparison": f"Estimated 15% reduction based on typical changes (baseline: {carbon_est} kg CO2e)",
             "tip": "Every small change adds up. Try it for a week!",
+            "savings_forecast_30_days": round(carbon_est * 0.15 * 30, 2)
         }
+
 
     def submit_feedback(self, user_id, feedback_type, user_message, user_context):
         prompt = self._prompts.feedback_prompt(
@@ -289,6 +419,12 @@ class AIService:
             "Content-Type": "application/json",
             "X-Goog-Api-Key": self._api_key,
         }
+        HARM_CATEGORIES = [
+            "HARM_CATEGORY_HARASSMENT",
+            "HARM_CATEGORY_DANGEROUS_CONTENT",
+            "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+            "HARM_CATEGORY_HATE_SPEECH",
+        ]
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {
@@ -296,6 +432,10 @@ class AIService:
                 "topP": 0.9,
                 "maxOutputTokens": 512,
             },
+            "safetySettings": [
+                {"category": c, "threshold": "BLOCK_MEDIUM_AND_ABOVE"}
+                for c in HARM_CATEGORIES
+            ],
         }
         if deterministic:
             payload["generationConfig"]["seed"] = 42
@@ -337,11 +477,29 @@ class AIService:
 
     def _parse_response(self, data):
         try:
-            text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+            candidates = data.get("candidates", [])
+            if not candidates:
+                return None
+            candidate = candidates[0]
+            finish_reason = candidate.get("finishReason")
+            if finish_reason == "SAFETY":
+                logger.warning("Gemini response blocked due to safety settings.")
+                return {"response": "This content is unavailable as it conflicts with safety guidelines.", "error": "SAFETY_BLOCKED"}
+            
+            content = candidate.get("content", {})
+            parts = content.get("parts", [])
+            if not parts:
+                return None
+            text = parts[0].get("text", "").strip()
             if text.startswith("```"):
                 lines = text.split("\n")
                 text = "\n".join(lines[1:-1])
             return json.loads(text)
         except (KeyError, IndexError, json.JSONDecodeError) as exc:
-            logger.error("Failed to parse Gemini response: %s", exc)
-            return None
+            # Fallback for plain text responses that are not valid JSON
+            try:
+                text = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+                return {"response": text}
+            except Exception:
+                logger.error("Failed to parse Gemini response: %s", exc)
+                return None

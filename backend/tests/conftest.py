@@ -1,3 +1,9 @@
+"""Test fixtures for the EcoMentor AI backend test suite.
+
+Provides app, client, mock repositories, and pre-configured
+service instances with all dependencies mocked.
+"""
+
 import pytest
 from app import create_app
 
@@ -28,6 +34,9 @@ def app_ctx(app):
 def request_ctx(app):
     with app.test_request_context():
         yield
+
+
+# ── Mock repositories ────────────────────────────────────────────
 
 
 @pytest.fixture
@@ -77,6 +86,14 @@ def mock_ai_report_repo(mocker):
 @pytest.fixture
 def mock_ai_service(mocker):
     return mocker.MagicMock(name="AIService")
+
+
+@pytest.fixture
+def mock_cache_service(mocker):
+    return mocker.MagicMock(name="CacheService")
+
+
+# ── Service instances ────────────────────────────────────────────
 
 
 @pytest.fixture
@@ -158,3 +175,89 @@ def carbon_service():
     from app.services.carbon_service import CarbonService
 
     return CarbonService()
+
+
+# ── New feature service fixtures ─────────────────────────────────
+
+
+@pytest.fixture
+def coach_service(
+    mock_ai_service,
+    mock_carbon_history_repo,
+    mock_activity_repo,
+    mock_user_repo,
+    mock_cache_service,
+):
+    from app.services.coach_service import CoachService
+
+    return CoachService(
+        ai_service=mock_ai_service,
+        carbon_history_repo=mock_carbon_history_repo,
+        activity_repo=mock_activity_repo,
+        user_repo=mock_user_repo,
+        cache_service=mock_cache_service,
+    )
+
+
+@pytest.fixture
+def report_service(
+    mock_ai_service,
+    mock_carbon_history_repo,
+    mock_user_repo,
+    mock_cache_service,
+):
+    from app.services.report_service import ReportService
+
+    return ReportService(
+        ai_service=mock_ai_service,
+        carbon_history_repo=mock_carbon_history_repo,
+        user_repo=mock_user_repo,
+        cache_service=mock_cache_service,
+    )
+
+
+@pytest.fixture
+def simulator_service(
+    mock_ai_service,
+    mock_carbon_history_repo,
+    mock_user_repo,
+):
+    from app.services.simulator_service import SimulatorService
+
+    return SimulatorService(
+        ai_service=mock_ai_service,
+        carbon_history_repo=mock_carbon_history_repo,
+        user_repo=mock_user_repo,
+    )
+
+
+@pytest.fixture
+def habit_service(
+    mock_ai_service,
+    mock_activity_repo,
+    mock_carbon_history_repo,
+    mock_user_repo,
+    mock_cache_service,
+):
+    from app.services.habit_service import HabitService
+
+    return HabitService(
+        ai_service=mock_ai_service,
+        activity_repo=mock_activity_repo,
+        carbon_history_repo=mock_carbon_history_repo,
+        user_repo=mock_user_repo,
+        cache_service=mock_cache_service,
+    )
+
+
+@pytest.fixture
+def forecast_service(
+    mock_carbon_history_repo,
+    mock_user_repo,
+):
+    from app.services.forecast_service import ForecastService
+
+    return ForecastService(
+        carbon_history_repo=mock_carbon_history_repo,
+        user_repo=mock_user_repo,
+    )

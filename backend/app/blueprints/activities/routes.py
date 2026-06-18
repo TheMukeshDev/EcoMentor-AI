@@ -57,7 +57,9 @@ def log_activity():
 @activities_bp.route("/<activity_id>", methods=["GET"])
 @require_auth
 def get_activity(activity_id):
-    activity = _service.get_activity(activity_id)
+    from flask import g
+
+    activity = _service.get_activity(activity_id, g.user_id)
     if not activity:
         return error_response("Activity not found", 404)
     return success_response(activity)
@@ -67,5 +69,7 @@ def get_activity(activity_id):
 @require_auth
 @csrf_protect
 def delete_activity(activity_id):
-    _service.delete_activity(activity_id)
+    from flask import g
+
+    _service.delete_activity(activity_id, g.user_id)
     return success_response({"message": "Activity deleted"})

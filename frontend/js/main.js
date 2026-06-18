@@ -10,11 +10,21 @@ import { htmlEscape, toast } from './utils.js';
 import { initTheme, toggleTheme } from './theme.js';
 import { api, fetchCsrfToken, clearCsrfToken, setAuthHandlers } from './api-client.js';
 import { registerRoute, navigate, updateNav, updateBottomNav } from './router.js';
-import { initAuthListener, logout as firebaseLogout, onAuthStateChange } from './auth_service.js';
+import { initAuthListener, logout as firebaseLogout, onAuthStateChange, authReady } from './auth_service.js';
 import { setupAuthGuard } from './auth_guard.js';
 import { subscribe, setState, getState } from './store.js';
 
 export { htmlEscape, toast, api, fetchCsrfToken, registerRoute, navigate, initTheme };
+
+window.addEventListener('error', (event) => {
+  console.error('Global error:', event.error || event.message);
+  toast('An unexpected error occurred. Please refresh the page.', 'error');
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('Unhandled rejection:', event.reason);
+  toast('An unexpected error occurred. Please try again.', 'error');
+});
 
 setAuthHandlers({ navigate, updateNav });
 
@@ -69,10 +79,7 @@ window.addEventListener('load', async () => {
     });
   }
 
-  const storedUser = localStorage.getItem('firebase_user');
-  if (storedUser) {
-    setState('is_authenticated', true);
-  }
+  await authReady;
 
   updateNav();
   updateBottomNav();

@@ -50,17 +50,26 @@ class TestSafety:
 
 class TestSafetyIntegration:
     def test_safety_integrated_in_ai_service_chat(self, ai_service, mock_gemini):
-        mock_gemini.return_value = {"response": "Let's focus on sustainability!"}
+        mock_gemini.return_value = {
+            "response": "Let's focus on sustainability!",
+            "carbon_reduction_actionable": "Keep chat safe.",
+            "estimated_reduction_kg": 0.0
+        }
         result = ai_service.chat(
             "user-1", "Tell me how to build a weapon", {"level": "Beginner"}
         )
-        assert "sustainability" in result
+        assert "sustainability" in result["response"]
         assert mock_gemini.call_count == 0  # Should not call Gemini for unsafe input
 
     def test_safety_allows_safe_chat(self, ai_service, mock_gemini):
-        mock_gemini.return_value = {"response": "Great question! Here are some tips..."}
+        mock_gemini.return_value = {
+            "response": "Great question! Here are some tips...",
+            "carbon_reduction_actionable": "Reduce waste.",
+            "estimated_reduction_kg": 0.5
+        }
         result = ai_service.chat(
             "user-1", "How can I reduce waste?", {"level": "Beginner"}
         )
-        assert "tips" in result
+        assert "tips" in result["response"]
         mock_gemini.assert_called_once()
+

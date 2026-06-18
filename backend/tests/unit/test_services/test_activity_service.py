@@ -154,7 +154,42 @@ class TestActivityService:
         mock_get.assert_called_once_with("act-1")
         assert result["id"] == "act-1"
 
+    def test_get_activity_unauthorized_raises_error(self, activity_service, mocker):
+        mocker.patch.object(
+            activity_service._activity_repo,
+            "get",
+            return_value={"id": "act-1", "uid": "user-123"},
+        )
+        from app.utils.errors import AuthorizationError
+        with pytest.raises(AuthorizationError):
+            activity_service.get_activity("act-1", user_id="other-user")
+
     def test_delete_activity_delegates_to_repo(self, activity_service, mocker):
+        mocker.patch.object(
+            activity_service._activity_repo,
+            "get",
+            return_value={"id": "act-1", "uid": "user-123"},
+        )
         mock_delete = mocker.patch.object(activity_service._activity_repo, "delete")
         activity_service.delete_activity("act-1")
         mock_delete.assert_called_once_with("act-1")
+
+    def test_delete_activity_unauthorized_raises_error(self, activity_service, mocker):
+        mocker.patch.object(
+            activity_service._activity_repo,
+            "get",
+            return_value={"id": "act-1", "uid": "user-123"},
+        )
+        from app.utils.errors import AuthorizationError
+        with pytest.raises(AuthorizationError):
+            activity_service.delete_activity("act-1", user_id="other-user")
+
+    def test_delete_activity_not_found_raises_error(self, activity_service, mocker):
+        mocker.patch.object(
+            activity_service._activity_repo,
+            "get",
+            return_value=None,
+        )
+        from app.utils.errors import NotFoundError
+        with pytest.raises(NotFoundError):
+            activity_service.delete_activity("act-1")

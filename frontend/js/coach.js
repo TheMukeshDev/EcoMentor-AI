@@ -5,18 +5,20 @@ async function renderCoach() {
   app.innerHTML = '<div class="spinner" role="status"><span class="sr-only">Loading coach...</span></div>';
 
   try {
-    const [missionRes, personalityRes, tipsRes] = await Promise.all([
+    const [missionRes, personalityRes, tipsRes, forecastRes] = await Promise.all([
       api('/ai/daily-mission').catch(() => ({ data: null })),
       api('/ai/eco-personality').catch(() => ({ data: null })),
       api('/ai/recommendations', {
         method: 'POST',
         body: JSON.stringify({ score: 50, transport: 'walking', food: 'vegetarian', ac_usage: 'none' }),
       }).catch(() => ({ data: null })),
+      api('/ai/forecast').catch(() => ({ data: null })),
     ]);
 
     const mission = missionRes.data;
     const personality = personalityRes.data;
     const tips = tipsRes.data?.tips || [];
+    const forecast = forecastRes?.data;
 
     app.innerHTML = `
       <div style="max-width:600px;margin:0 auto">
@@ -33,6 +35,31 @@ async function renderCoach() {
             <span class="mission-reward">+${mission.reward || 0} pts</span>
           </div>
         ` : ''}
+
+        ${forecast ? `
+          <div class="card" style="margin-bottom:24px">
+            <div class="card-title">Carbon Savings Forecast</div>
+            <p style="color:var(--color-text-secondary);margin-bottom:12px">Your projected carbon reductions if you implement coaching tips:</p>
+            <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:12px;text-align:center">
+              <div style="background:var(--color-surface-alt, #f7fafc);padding:12px;border-radius:8px">
+                <div style="font-size:0.8rem;color:var(--color-text-secondary)">1 Month</div>
+                <div style="font-size:1.2rem;font-weight:bold;color:var(--color-primary);margin-top:4px">${forecast.forecast_1_month_kg} kg</div>
+              </div>
+              <div style="background:var(--color-surface-alt, #f7fafc);padding:12px;border-radius:8px">
+                <div style="font-size:0.8rem;color:var(--color-text-secondary)">3 Months</div>
+                <div style="font-size:1.2rem;font-weight:bold;color:var(--color-primary);margin-top:4px">${forecast.forecast_3_months_kg} kg</div>
+              </div>
+              <div style="background:var(--color-surface-alt, #f7fafc);padding:12px;border-radius:8px">
+                <div style="font-size:0.8rem;color:var(--color-text-secondary)">6 Months</div>
+                <div style="font-size:1.2rem;font-weight:bold;color:var(--color-primary);margin-top:4px">${forecast.forecast_6_months_kg} kg</div>
+              </div>
+            </div>
+            <p style="font-size:0.85rem;color:var(--color-text-secondary);margin-top:12px;font-style:italic">
+              "${htmlEscape(forecast.motivation_message)}"
+            </p>
+          </div>
+        ` : ''}
+
 
         <div class="card" style="margin-bottom:16px">
           <div class="card-title">AI Chat</div>
@@ -127,7 +154,12 @@ function setupChat() {
       });
       const thinkingEl = messages.querySelector('.thinking');
       if (thinkingEl) thinkingEl.remove();
-      appendMessage('assistant', res.data?.response || 'I could not process that. Please try again.');
+      const chatData = res.data || {};
+      let responseText = chatData.response || 'I could not process that. Please try again.';
+      if (chatData.carbon_reduction_actionable && chatData.estimated_reduction_kg > 0) {
+        responseText += `\n\n💡 Actionable Tip: ${chatData.carbon_reduction_actionable} (Est. Savings: ${chatData.estimated_reduction_kg} kg CO2e)`;
+      }
+      appendMessage('assistant', responseText);
     } catch (err) {
       const thinkingEl = messages.querySelector('.thinking');
       if (thinkingEl) thinkingEl.remove();

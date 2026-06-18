@@ -15,7 +15,10 @@ const protectedRoutes = [
 const guestOnlyRoutes = ['/login', '/signup'];
 
 export function isAuthenticated() {
-  return getState('is_authenticated') === true || !!localStorage.getItem('id_token');
+  if (getState('auth_initialized') === true) {
+    return getState('is_authenticated') === true;
+  }
+  return !!localStorage.getItem('id_token');
 }
 
 export function requireAuth(route) {

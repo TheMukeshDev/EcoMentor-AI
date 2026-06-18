@@ -6,3 +6,8 @@ from app.services.leaderboard_service import LeaderboardService
 from app.services.carbon_service import CarbonService
 from app.services.cache_service import CacheService
 from app.services.prompt_service import PromptService
+from app.services.coach_service import CoachService
+from app.services.report_service import ReportService
+from app.services.simulator_service import SimulatorService
+from app.services.habit_service import HabitService
+from app.services.forecast_service import ForecastService

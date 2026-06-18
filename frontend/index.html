@@ -3,13 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="EcoMentor AI — Track, understand, and reduce your carbon footprint with personalized AI coaching.">
+  <meta name="description" content="EcoMentor AI — Track, understand, and reduce your carbon footprint with personalized AI coaching. Get data-driven insights grounded in IPCC emission factors.">
   <meta name="theme-color" content="#2d6a4f">
+  <meta name="robots" content="index, follow">
+  <meta property="og:title" content="EcoMentor AI — Carbon Footprint Tracker">
+  <meta property="og:description" content="AI-powered platform to track, reduce, and forecast your carbon emissions with personalized coaching.">
+  <meta property="og:type" content="website">
   <link rel="manifest" href="/manifest.json">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="EcoMentor">
-  <title>EcoMentor AI</title>
+  <title>EcoMentor AI — Carbon Footprint Tracker &amp; AI Coach</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="apple-touch-icon" href="/icon-192.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -22,53 +26,56 @@
   <header id="app-header" role="banner">
     <nav class="nav-container" aria-label="Main navigation">
       <a href="#/" class="nav-logo" aria-label="EcoMentor AI home">
-        <img src="/favicon.svg" class="logo-icon" alt="" aria-hidden="true">
+        <img src="/favicon.svg" class="logo-icon" alt="" width="32" height="32" aria-hidden="true">
         <span class="logo-text">EcoMentor</span>
       </a>
-      <button class="nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false" id="nav-toggle">
-        <span class="hamburger"></span>
+      <button class="nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="nav-links" id="nav-toggle">
+        <span class="hamburger" aria-hidden="true"></span>
       </button>
       <ul class="nav-links" id="nav-links" role="list">
-        <li><a href="#/" data-nav>Home</a></li>
-        <li class="auth-hidden"><a href="#/dashboard" data-nav>Dashboard</a></li>
-        <li class="auth-hidden"><a href="#/log" data-nav>Log Activity</a></li>
-        <li class="auth-hidden"><a href="#/coach" data-nav>AI Coach</a></li>
-        <li class="auth-hidden"><a href="#/leaderboard" data-nav>Leaderboard</a></li>
-        <li class="auth-hidden"><a href="#/achievements" data-nav>Achievements</a></li>
-        <li class="auth-hidden"><a href="#/report" data-nav>Report</a></li>
-        <li class="auth-hidden"><a href="#/profile" data-nav>Profile</a></li>
-        <li class="auth-hidden"><a href="#/settings" data-nav>Settings</a></li>
-        <li class="auth-visible"><a href="#/login" data-nav>Login</a></li>
-        <li class="auth-visible"><a href="#/signup" data-nav>Sign Up</a></li>
+        <li><a href="#/" data-nav id="nav-home">Home</a></li>
+        <li class="auth-hidden"><a href="#/dashboard" data-nav id="nav-dashboard">Dashboard</a></li>
+        <li class="auth-hidden"><a href="#/log" data-nav id="nav-log">Log Activity</a></li>
+        <li class="auth-hidden"><a href="#/coach" data-nav id="nav-coach">AI Coach</a></li>
+        <li class="auth-hidden"><a href="#/leaderboard" data-nav id="nav-leaderboard">Leaderboard</a></li>
+        <li class="auth-hidden"><a href="#/achievements" data-nav id="nav-achievements">Achievements</a></li>
+        <li class="auth-hidden"><a href="#/report" data-nav id="nav-report">Report</a></li>
+        <li class="auth-hidden"><a href="#/profile" data-nav id="nav-profile">Profile</a></li>
+        <li class="auth-hidden"><a href="#/settings" data-nav id="nav-settings">Settings</a></li>
+        <li class="auth-visible"><a href="#/login" data-nav id="nav-login">Login</a></li>
+        <li class="auth-visible"><a href="#/signup" data-nav id="nav-signup">Sign Up</a></li>
         <li class="auth-hidden"><a href="#/" data-nav id="logout-btn">Logout</a></li>
       </ul>
-      <button class="theme-toggle" aria-label="Toggle dark mode" id="theme-toggle">&#9790;</button>
+      <button class="theme-toggle" aria-label="Toggle dark mode" id="theme-toggle" role="switch" aria-checked="false">&#9790;</button>
     </nav>
   </header>
 
   <main id="main-content" role="main">
-    <div id="app"></div>
+    <div id="app" aria-live="polite" aria-atomic="false"></div>
   </main>
 
+  <!-- Toast container for notifications -->
+  <div id="toast-container" aria-live="assertive" aria-atomic="true" role="status" class="toast-container"></div>
+
   <nav class="bottom-nav" aria-label="Bottom navigation">
-    <a href="#/dashboard" class="bottom-nav-link" data-bottom-nav>
-      <span class="bottom-nav-icon">&#128202;</span>
+    <a href="#/dashboard" class="bottom-nav-link" data-bottom-nav id="bottom-dashboard">
+      <span class="bottom-nav-icon" aria-hidden="true">&#128202;</span>
       <span class="bottom-nav-label">Dashboard</span>
     </a>
-    <a href="#/log" class="bottom-nav-link" data-bottom-nav>
-      <span class="bottom-nav-icon">&#128221;</span>
+    <a href="#/log" class="bottom-nav-link" data-bottom-nav id="bottom-log">
+      <span class="bottom-nav-icon" aria-hidden="true">&#128221;</span>
       <span class="bottom-nav-label">Log</span>
     </a>
-    <a href="#/coach" class="bottom-nav-link" data-bottom-nav>
-      <span class="bottom-nav-icon">&#129309;</span>
+    <a href="#/coach" class="bottom-nav-link" data-bottom-nav id="bottom-coach">
+      <span class="bottom-nav-icon" aria-hidden="true">&#129309;</span>
       <span class="bottom-nav-label">Coach</span>
     </a>
-    <a href="#/leaderboard" class="bottom-nav-link" data-bottom-nav>
-      <span class="bottom-nav-icon">&#127942;</span>
+    <a href="#/leaderboard" class="bottom-nav-link" data-bottom-nav id="bottom-leaderboard">
+      <span class="bottom-nav-icon" aria-hidden="true">&#127942;</span>
       <span class="bottom-nav-label">Leaderboard</span>
     </a>
-    <a href="#/settings" class="bottom-nav-link" data-bottom-nav>
-      <span class="bottom-nav-icon">&#9881;</span>
+    <a href="#/settings" class="bottom-nav-link" data-bottom-nav id="bottom-settings">
+      <span class="bottom-nav-icon" aria-hidden="true">&#9881;</span>
       <span class="bottom-nav-label">Settings</span>
     </a>
   </nav>

@@ -39,6 +39,8 @@ class BaseConfig:
 
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
     FIREBASE_API_KEY = os.getenv("FIREBASE_API_KEY", "")
+    FIREBASE_PRIVATE_KEY = os.getenv("FIREBASE_PRIVATE_KEY")
+    FIREBASE_CLIENT_EMAIL = os.getenv("FIREBASE_CLIENT_EMAIL")
 
 
 class DevelopmentConfig(BaseConfig):

@@ -11,6 +11,7 @@ from app.middleware.auth_middleware import require_auth
 from app.middleware.csrf import csrf_protect
 from app.utils.responses import success_response, error_response
 from app.utils.rate_limiter import rate_limiter
+from app.utils.safety import check_input_safety
 from app.extensions import db
 from app.repositories.ai_report_repository import AIReportRepository
 from app.repositories.activity_repository import ActivityRepository
@@ -24,6 +25,13 @@ from app.blueprints.ai.schemas import (
     WhatsIfRequest,
     FeedbackRequest,
 )
+from app.schemas.ai_schemas import SimulatorRequest, ForecastRequest
+from app.services.coach_service import CoachService
+from app.services.report_service import ReportService
+from app.services.simulator_service import SimulatorService
+from app.services.habit_service import HabitService
+from app.services.forecast_service import ForecastService
+from app.services.cache_service import CacheService
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +45,20 @@ _ai_service = AIService(
     api_key=os.getenv("GEMINI_API_KEY"),
     ai_report_repository=_ai_report_repo,
 )
+_cache_service = CacheService(_ai_report_repo)
+_coach_service = CoachService(
+    _ai_service, _carbon_history_repo, _activity_repo, _user_repo, _cache_service
+)
+_report_service = ReportService(
+    _ai_service, _carbon_history_repo, _user_repo, _cache_service
+)
+_simulator_service = SimulatorService(
+    _ai_service, _carbon_history_repo, _user_repo
+)
+_habit_service = HabitService(
+    _ai_service, _activity_repo, _carbon_history_repo, _user_repo, _cache_service
+)
+_forecast_service = ForecastService(_carbon_history_repo, _user_repo)
 
 
 def _compute_trend(scores):
@@ -129,7 +151,7 @@ def get_recommendations():
     result = _ai_service.get_recommendations(g.user_id, data)
     if result is None:
         return error_response("AI service unavailable", 503)
-    return success_response({"tips": result})
+    return success_response(result)
 
 
 @ai_bp.route("/weekly-report", methods=["GET"])
@@ -176,11 +198,16 @@ def chat():
     except ValidationError as exc:
         return error_response(str(exc), 422)
 
+    safety = check_input_safety(body.message)
+    if not safety["safe"]:
+        logger.warning("Unsafe chat input from %s: %s", g.user_id, safety["issues"])
+        return error_response("Message contains prohibited content", 422)
+
     context = _build_user_context(g.user_id)
     result = _ai_service.chat(g.user_id, body.message, context)
     if result is None:
         return error_response("AI service unavailable", 503)
-    return success_response({"response": result})
+    return success_response(result)
 
 
 @ai_bp.route("/chat/history", methods=["GET"])
@@ -188,6 +215,33 @@ def chat():
 def get_chat_history():
     history = _ai_service.get_conversation_history(g.user_id)
     return success_response(history)
+
+
+@ai_bp.route("/forecast", methods=["GET"])
+@require_auth
+@rate_limiter.limit(scope="user", capacity=20, refill_rate=1)
+def get_forecast():
+    context = _build_user_context(g.user_id)
+    rec_data = {
+        "score": context["current_score"],
+        "transport": "walking",
+        "food": "vegetarian",
+        "ac_usage": "none",
+        "level": context["level"],
+        "streak": context["streak"],
+        "weekly_avg": context["weekly_avg"],
+        "score_trend": context["score_trend"],
+        "best_category": context["best_category"],
+        "worst_category": context["worst_category"],
+    }
+    tips_dict = _ai_service.get_recommendations(g.user_id, rec_data)
+    tips = tips_dict.get("tips", []) if isinstance(tips_dict, dict) else []
+
+    result = _ai_service.get_carbon_savings_forecast(g.user_id, context, tips)
+    if result is None:
+        return error_response("AI service unavailable", 503)
+    return success_response(result)
+
 
 
 @ai_bp.route("/chat/clear", methods=["POST"])
@@ -270,6 +324,11 @@ def chat_stream():
 
     message = sanitize_input(message, 1000)
 
+    safety = check_input_safety(message)
+    if not safety["safe"]:
+        logger.warning("Unsafe stream input from %s: %s", g.user_id, safety["issues"])
+        return error_response("Message contains prohibited content", 422)
+
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         return error_response("AI service not configured", 503)
@@ -296,6 +355,15 @@ def chat_stream():
         "system_instruction": {"parts": [{"text": system_prompt}]},
         "contents": contents,
         "generationConfig": {"temperature": 0.3, "maxOutputTokens": 512, "seed": 42},
+        "safetySettings": [
+            {"category": c, "threshold": "BLOCK_MEDIUM_AND_ABOVE"}
+            for c in [
+                "HARM_CATEGORY_HARASSMENT",
+                "HARM_CATEGORY_DANGEROUS_CONTENT",
+                "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                "HARM_CATEGORY_HATE_SPEECH",
+            ]
+        ],
     }
 
     full_response = []
@@ -347,3 +415,69 @@ def chat_stream():
             "X-Accel-Buffering": "no",
         },
     )
+
+
+# ── 5 Core AI Features ───────────────────────────────────────────
+
+
+@ai_bp.route("/coach", methods=["GET"])
+@require_auth
+@rate_limiter.limit(scope="user", capacity=20, refill_rate=1)
+def get_coach():
+    """Personalized carbon coaching plan (cached 24h per user)."""
+    result = _coach_service.get_coaching_plan(g.user_id)
+    return success_response(result)
+
+
+@ai_bp.route("/sustainability-report", methods=["GET"])
+@require_auth
+@rate_limiter.limit(scope="user", capacity=10, refill_rate=1)
+def get_sustainability_report():
+    """Weekly sustainability report with AI insights."""
+    result = _report_service.generate_report(g.user_id)
+    return success_response(result)
+
+
+@ai_bp.route("/internal/weekly-report", methods=["POST"])
+def trigger_weekly_report():
+    """Cloud Scheduler trigger for weekly reports (internal only)."""
+    api_key = request.headers.get("X-Internal-Key", "")
+    expected = os.getenv("INTERNAL_API_KEY", "")
+    if not expected or api_key != expected:
+        return error_response("Unauthorized", 401)
+    return success_response({"triggered": True})
+
+
+@ai_bp.route("/whatif", methods=["POST"])
+@require_auth
+@csrf_protect
+@rate_limiter.limit(scope="user", capacity=10, refill_rate=1)
+def whatif_simulator():
+    """What-If Simulator for hypothetical lifestyle changes."""
+    try:
+        body = SimulatorRequest(**request.get_json(force=True))
+    except ValidationError as exc:
+        return error_response(str(exc), 422)
+
+    result = _simulator_service.simulate(g.user_id, body.scenario)
+    return success_response(result)
+
+
+@ai_bp.route("/habits", methods=["GET"])
+@require_auth
+@rate_limiter.limit(scope="user", capacity=20, refill_rate=1)
+def get_habits():
+    """Habit suggestions using rule engine + AI personalization."""
+    result = _habit_service.get_habits(g.user_id)
+    return success_response(result)
+
+
+@ai_bp.route("/carbon-forecast", methods=["GET"])
+@require_auth
+@rate_limiter.limit(scope="user", capacity=20, refill_rate=1)
+def get_carbon_forecast():
+    """Carbon emission forecast using linear regression."""
+    days = request.args.get("days", 30, type=int)
+    result = _forecast_service.get_forecast(g.user_id, days)
+    return success_response(result)
+

@@ -20,6 +20,10 @@ export function onAuthError(cb) {
   onAuthErrorCallback = cb;
 }
 
+let authReadyResolve;
+export const authReady = new Promise(resolve => { authReadyResolve = resolve; });
+let authInitialized = false;
+
 export function initAuthListener() {
   onAuthStateChanged(auth, async (user) => {
     if (user) {
@@ -49,6 +53,11 @@ export function initAuthListener() {
       setState('is_authenticated', false);
       setState('user_profile', null);
       if (onAuthChangeCallback) onAuthChangeCallback(null, null);
+    }
+    if (!authInitialized) {
+      authInitialized = true;
+      setState('auth_initialized', true);
+      authReadyResolve();
     }
   });
 }
@@ -132,16 +141,22 @@ export async function logout() {
 }
 
 export async function getCurrentToken() {
+  if (!auth.currentUser && getState('auth_initialized') !== true) {
+    await authReady;
+  }
   const user = auth.currentUser;
   if (user) {
     try {
-      return await user.getIdToken(false);
-    } catch {
-      return null;
+      const token = await user.getIdToken(false);
+      if (token) {
+        localStorage.setItem('id_token', token);
+        return token;
+      }
+    } catch (e) {
+      console.warn("Failed to get ID token from Firebase user, falling back to localStorage", e);
     }
   }
-  const token = localStorage.getItem('id_token');
-  return token || null;
+  return localStorage.getItem('id_token') || null;
 }
 
 export function getCurrentUser() {

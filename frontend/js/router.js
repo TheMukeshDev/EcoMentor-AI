@@ -7,7 +7,24 @@ export function registerRoute(path, renderFn) {
   routes[path] = renderFn;
 }
 
+let _beforeRouteChange = null;
+
+export function onBeforeRouteChange(fn) {
+  _beforeRouteChange = fn;
+}
+
 export function navigate(hash) {
+  if (getState('auth_initialized') !== true) {
+    const app = document.getElementById('app');
+    if (app) {
+      app.innerHTML = '<div class="spinner" role="status"><span class="sr-only">Loading...</span></div>';
+    }
+    import('./auth_service.js').then(({ authReady }) => {
+      authReady.then(() => navigate(hash));
+    });
+    return;
+  }
+
   let path = hash.replace(/^#\/?/, '/') || '/';
 
   const redirect = requireAuth(path);
@@ -19,7 +36,7 @@ export function navigate(hash) {
   const app = document.getElementById('app');
   const renderFn = routes[path];
 
-  try { window.unsubscribeDashboard?.(); } catch {} /**/
+  if (_beforeRouteChange) _beforeRouteChange();
   if (renderFn) {
     app.innerHTML = '<div class="spinner" role="status"><span class="sr-only">Loading...</span></div>';
     Promise.resolve(renderFn()).then(() => {
@@ -52,13 +69,13 @@ export function navigate(hash) {
 }
 
 export function updateNav() {
-  const authenticated = getState('is_authenticated') === true || !!localStorage.getItem('id_token');
+  const authenticated = getState('auth_initialized') === true ? getState('is_authenticated') === true : !!localStorage.getItem('id_token');
   document.querySelectorAll('.auth-hidden').forEach(el => el.style.display = authenticated ? '' : 'none');
   document.querySelectorAll('.auth-visible').forEach(el => el.style.display = authenticated ? 'none' : '');
 }
 
 export function updateBottomNav() {
-  const authenticated = getState('is_authenticated') === true || !!localStorage.getItem('id_token');
+  const authenticated = getState('auth_initialized') === true ? getState('is_authenticated') === true : !!localStorage.getItem('id_token');
   document.querySelectorAll('.bottom-nav-link').forEach(el => {
     const href = el.getAttribute('href');
     if (href === '#/dashboard' || href === '#/log' || href === '#/coach' || href === '#/leaderboard' || href === '#/settings') {
