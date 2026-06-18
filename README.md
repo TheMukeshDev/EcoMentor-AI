@@ -87,16 +87,16 @@ pytest -m integration     # Integration tests only
 pytest --cov=app          # With coverage
 ```
 
-42 tests (unit structural + integration URL-map). Tests use mocked repositories — no Firestore emulator required.
+Tests use mocked repositories and services — no Firestore emulator required.
 
 ### Test structure
 
 ```
 tests/
-├── conftest.py           # Session-scoped app, mock repo fixtures, pre-wired services
+├── conftest.py               # Session-scoped app, mock repo fixtures, pre-wired services
 ├── unit/
-│   ├── test_services/    # Service instantiation & method stubs
-│   └── test_repositories/ # Query builders & collection names
+│   ├── test_services/        # Service logic tests (carbon calc, auth, activity flows)
+│   └── test_repositories/    # Query builders & collection names
 └── integration/
     ├── test_health.py
     ├── test_auth_routes.py
@@ -152,6 +152,22 @@ Blueprints never import repositories. Services never import Flask globals. Repos
 - Token bucket rate limiting (per-IP / per-user / global)
 - Pydantic request validation with field-level 422 errors
 - Security headers: `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`
+- Full threat model: [docs/security.md](docs/security.md)
+
+### Carbon Calculator
+
+The `CarbonService` calculates a daily carbon footprint score from four categories:
+
+| Category | Input | Factor |
+|---|---|---|
+| **Transport** | transport type + distance (km) | Walking/bicycle: 0, Metro: 2, Bus: 4, Bike: 8, Car: 10, Plane: 20 gCO₂/km |
+| **Electricity** | AC usage hours | None: 0, 1-2h: 1.5, 3-5h: 4, 6+h: 8 hours × 0.5 kgCO₂/h |
+| **Food** | diet type | Vegan: 1, Vegetarian: 2, Non-veg: 6 kgCO₂ × 0.5 |
+| **Waste** | plastic waste (kg) | 2.0 kgCO₂/kg |
+
+`score = transportFactor × distance × 0.1 + acHours × 0.5 + foodFactor × 0.5 + plasticKg × 2.0`
+
+A breakdown per category is available via `CarbonService.get_breakdown()`.
 
 ### Accessibility
 
@@ -163,9 +179,10 @@ GitHub Actions workflows (`.github/workflows/`):
 
 | Workflow | Trigger | Actions |
 |---|---|---|
-| `backend-ci.yml` | PR | Ruff lint → pytest → build Docker image |
-| `frontend-ci.yml` | PR | Lint → build → deploy Firebase Hosting (staging) |
-| `deploy.yml` | Push to `main` | Deploy to Cloud Run + Hosting (production) |
+| `backend-ci.yml` | PR (backend/) | Ruff lint → pytest → coverage |
+| `deploy.yml` | Push to `main` | Build & deploy Cloud Run + Firebase Hosting |
+
+CI/CD configs reference [docs/security.md](docs/security.md) for incident response procedures.
 
 ## Tech Stack
 

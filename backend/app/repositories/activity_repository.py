@@ -6,7 +6,14 @@ class ActivityRepository(BaseRepository):
         super().__init__(db, "activities")
 
     def find_by_user_id(self, user_id):
-        pass
+        return self.query(filters=[("uid", "==", user_id)], order_by="date")
 
     def find_by_user_and_date_range(self, user_id, start, end):
-        pass
+        return self.query(
+            filters=[
+                ("uid", "==", user_id),
+                ("date", ">=", start),
+                ("date", "<=", end),
+            ],
+            order_by="date",
+        )

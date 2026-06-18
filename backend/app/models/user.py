@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
 
@@ -6,7 +6,9 @@ from typing import Optional
 class User:
     uid: str
     email: str
-    display_name: str
-    photo_url: Optional[str] = None
+    name: str
+    points: int = 0
+    streak: int = 0
+    level: str = "Beginner"
+    badge: str = "Seedling"
     created_at: Optional[str] = None
-    updated_at: Optional[str] = None

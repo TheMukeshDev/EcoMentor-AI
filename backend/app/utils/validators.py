@@ -7,16 +7,13 @@ from pydantic import BaseModel, ValidationError as PydanticValidationError
 logger = logging.getLogger(__name__)
 
 
-def validate_body(schema):
-    if isinstance(schema, type):
-        schema = schema()
-
+def validate_body(schema_cls):
     def decorator(f):
         @wraps(f)
         def wrapper(*args, **kwargs):
             data = request.get_json(silent=True) or {}
             try:
-                validated = schema.model_validate(data)
+                validated = schema_cls.model_validate(data)
                 request.validated_body = validated
             except PydanticValidationError as exc:
                 errors = [
@@ -40,16 +37,13 @@ def validate_body(schema):
     return decorator
 
 
-def validate_query(schema):
-    if isinstance(schema, type):
-        schema = schema()
-
+def validate_query(schema_cls):
     def decorator(f):
         @wraps(f)
         def wrapper(*args, **kwargs):
             data = dict(request.args)
             try:
-                validated = schema.model_validate(data)
+                validated = schema_cls.model_validate(data)
                 request.validated_query = validated
             except PydanticValidationError as exc:
                 errors = [

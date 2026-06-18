@@ -6,4 +6,5 @@ class UserRepository(BaseRepository):
         super().__init__(db, "users")
 
     def find_by_email(self, email):
-        pass
+        results = self.query(filters=[("email", "==", email)])
+        return results[0] if results else None
