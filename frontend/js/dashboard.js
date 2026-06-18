@@ -1,8 +1,9 @@
 import { api, toast, registerRoute, htmlEscape } from './main.js';
+import { dashboardSkeleton } from './skeletons.js';
 
 async function renderDashboard() {
   const app = document.getElementById('app');
-  app.innerHTML = '<div class="spinner" role="status"><span class="sr-only">Loading dashboard...</span></div>';
+  app.innerHTML = dashboardSkeleton();
 
   try {
     const [summaryRes, trendsRes, missionRes, personalityRes] = await Promise.all([
@@ -108,11 +109,14 @@ function getCSSVar(name, fallback) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
 }
 
-function renderChart(history) {
+async function renderChart(history) {
   const canvas = document.getElementById('carbonChart');
   if (!canvas) return;
 
-  if (window._carbonChart instanceof Chart) window._carbonChart.destroy();
+  if (window._carbonChart) {
+    if (typeof window._carbonChart.destroy === 'function') window._carbonChart.destroy();
+    window._carbonChart = null;
+  }
 
   const labels = history.map(e => {
     const d = e.date || '';
@@ -123,6 +127,7 @@ function renderChart(history) {
   const primary = getCSSVar('--color-primary', '#2d6a4f');
   const muted = getCSSVar('--color-text-muted', '#718096');
 
+  const { default: Chart } = await import('chart.js');
   const ctx = canvas.getContext('2d');
   window._carbonChart = new Chart(ctx, {
     type: 'line',

@@ -1,4 +1,5 @@
 import { api, registerRoute, htmlEscape } from './main.js';
+import { achievementsSkeleton } from './skeletons.js';
 
 const ECO_TREE_LEVELS = [
   { name: 'Seed', icon: '\uD83C\uDF31', minPoints: 0 },
@@ -16,7 +17,7 @@ const BADGES = [
 
 async function renderAchievements() {
   const app = document.getElementById('app');
-  app.innerHTML = '<div class="spinner" role="status"><span class="sr-only">Loading achievements...</span></div>';
+  app.innerHTML = achievementsSkeleton();
 
   try {
     const profileRes = await api('/auth/profile').catch(() => ({ data: {} }));

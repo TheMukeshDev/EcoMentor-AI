@@ -1,8 +1,9 @@
 import { api, registerRoute, htmlEscape } from './main.js';
+import { leaderboardSkeleton } from './skeletons.js';
 
 async function renderLeaderboard() {
   const app = document.getElementById('app');
-  app.innerHTML = '<div class="spinner" role="status"><span class="sr-only">Loading leaderboard...</span></div>';
+  app.innerHTML = leaderboardSkeleton();
 
   try {
     const res = await api('/leaderboard/global').catch(() => ({ data: [] }));

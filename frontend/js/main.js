@@ -1,131 +1,37 @@
-const API_BASE = '/api';
+// CSS imports (Vite bundles these)
+import '../css/variables.css';
+import '../css/reset.css';
+import '../css/base.css';
+import '../css/layout.css';
+import '../css/components.css';
+import '../css/utilities.css';
 
-export function htmlEscape(str) {
-  if (typeof str !== 'string') return str;
-  const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
-  return str.replace(/[&<>"']/g, ch => map[ch]);
-}
+// Feature modules
+import { htmlEscape, toast } from './utils.js';
+import { initTheme, toggleTheme } from './theme.js';
+import { api, fetchCsrfToken, clearCsrfToken, setAuthHandlers } from './api-client.js';
+import { registerRoute, navigate, updateNav } from './router.js';
 
-let csrfToken = '';
+// Re-export for page modules
+export { htmlEscape, toast, api, fetchCsrfToken, registerRoute, navigate, initTheme };
 
-export async function api(path, options = {}) {
-  const token = localStorage.getItem('id_token');
-  const headers = { 'Content-Type': 'application/json', ...options.headers };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  if (csrfToken && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(options.method || '')) {
-    headers['X-CSRF-Token'] = csrfToken;
-  }
-  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
-  if (!res.ok) {
-    if (res.status === 401) {
-      localStorage.removeItem('id_token');
-      csrfToken = '';
-      updateNav();
-      navigate('#/login');
-      throw new Error('Session expired. Please log in again.');
-    }
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.message || `Request failed (${res.status})`);
-  }
-  return res.json();
-}
-
-export async function fetchCsrfToken() {
-  try {
-    const res = await fetch('/api/auth/csrf-token');
-    const data = await res.json();
-    csrfToken = data.token || data.csrf_token || '';
-  } catch (_) { }
-}
-
-function toast(message, type = 'info') {
-  const el = document.createElement('div');
-  el.className = `toast ${type}`;
-  el.textContent = message;
-  el.setAttribute('role', 'alert');
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 3000);
-}
-
-export { toast };
-
-// Dark mode
-function initTheme() {
-  const saved = localStorage.getItem('theme');
-  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const theme = saved || (prefersDark ? 'dark' : 'light');
-  document.documentElement.setAttribute('data-theme', theme);
-  const btn = document.getElementById('theme-toggle');
-  if (btn) btn.textContent = theme === 'dark' ? '\u2600' : '\u263E';
-}
-
-function toggleTheme() {
-  const current = document.documentElement.getAttribute('data-theme');
-  const next = current === 'dark' ? 'light' : 'dark';
-  document.documentElement.setAttribute('data-theme', next);
-  localStorage.setItem('theme', next);
-  const btn = document.getElementById('theme-toggle');
-  if (btn) btn.textContent = next === 'dark' ? '\u2600' : '\u263E';
-  if (window._carbonChart instanceof Chart) {
-    window._carbonChart.destroy();
-    window._carbonChart = null;
-  }
-}
-
-// Nav
-function updateNav() {
-  const token = localStorage.getItem('id_token');
-  document.querySelectorAll('.auth-hidden').forEach(el => el.style.display = token ? '' : 'none');
-  document.querySelectorAll('.auth-visible').forEach(el => el.style.display = token ? 'none' : '');
-}
-
-function closeNav() {
-  const nav = document.getElementById('nav-links');
-  const toggle = document.getElementById('nav-toggle');
-  if (nav) nav.classList.remove('open');
-  if (toggle) toggle.setAttribute('aria-expanded', 'false');
-}
-
-// Router
-const routes = {};
-
-function registerRoute(path, renderFn) {
-  routes[path] = renderFn;
-}
-
-function navigate(hash) {
-  const path = hash.replace(/^#\/?/, '/') || '/';
-  const app = document.getElementById('app');
-
-  const renderFn = routes[path];
-  if (renderFn) {
-    app.innerHTML = '<div class="spinner" role="status"><span class="sr-only">Loading...</span></div>';
-    Promise.resolve(renderFn()).then(() => {
-      updateNav();
-      document.querySelectorAll('[data-nav]').forEach(l => {
-        l.removeAttribute('aria-current');
-        if (l.getAttribute('href') === hash || (hash === '' && l.getAttribute('href') === '#/')) {
-          l.setAttribute('aria-current', 'page');
-        }
-      });
-    });
-  } else {
-    app.innerHTML = `
-      <div class="error-state" style="padding:80px 20px">
-        <span class="empty-icon" style="font-size:4rem">&#128683;</span>
-        <h2 style="margin-bottom:8px">Page Not Found</h2>
-        <p style="color:var(--color-text-secondary);margin-bottom:20px">The page you're looking for doesn't exist.</p>
-        <a href="#/" class="btn btn-primary">Go Home</a>
-      </div>
-    `;
-  }
-
-  closeNav();
-  document.getElementById('main-content')?.focus();
-}
+setAuthHandlers({ navigate, updateNav });
 
 window.addEventListener('hashchange', () => navigate(window.location.hash));
-window.addEventListener('load', () => {
+window.addEventListener('load', async () => {
+  await Promise.all([
+    import('./home.js'),
+    import('./auth.js'),
+    import('./dashboard.js'),
+    import('./activities.js'),
+    import('./leaderboard.js'),
+    import('./achievements.js'),
+    import('./coach.js'),
+    import('./report.js'),
+    import('./profile.js'),
+    import('./settings.js'),
+  ]);
+
   initTheme();
   document.getElementById('theme-toggle')?.addEventListener('click', toggleTheme);
   document.getElementById('nav-toggle')?.addEventListener('click', () => {
@@ -136,7 +42,7 @@ window.addEventListener('load', () => {
   });
   document.getElementById('logout-btn')?.addEventListener('click', () => {
     localStorage.removeItem('id_token');
-    csrfToken = '';
+    clearCsrfToken();
     updateNav();
     navigate('');
   });
@@ -144,5 +50,3 @@ window.addEventListener('load', () => {
   fetchCsrfToken();
   navigate(window.location.hash);
 });
-
-export { registerRoute, navigate, htmlEscape, fetchCsrfToken, initTheme };
