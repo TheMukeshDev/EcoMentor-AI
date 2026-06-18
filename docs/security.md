@@ -39,9 +39,13 @@ EcoMentor AI — Flask API (Cloud Run) + Firebase Hosting SPA + Firestore.
 - **Risk**: Attacker tricks authenticated user into submitting a request
 - **Impact**: Activity logged, profile changed without consent
 - **Mitigations**:
-  - CSRF protection middleware on POST/PUT/DELETE (validates HMAC-signed token)
-  - CSRF token endpoint at `GET /api/auth/csrf-token`
+  - Nonce-based CSRF protection with 1-hour TTL (replaced static HMAC approach)
+  - Token format: `nonce:timestamp:hmac_sha256_signature` (three parts separated by `:`)
   - CSRF check skipped in TESTING mode only
+  - `generate_csrf_token()` produces unique nonces via `secrets.token_hex(32)`
+  - `validate_csrf_token()` checks HMAC signature and timestamp expiry
+  - CSRF token endpoint at `GET /api/auth/csrf-token`
+  - Client sends token via `X-CSRF-Token` header on state-changing requests
 
 ### T3: Rate-limit bypass
 

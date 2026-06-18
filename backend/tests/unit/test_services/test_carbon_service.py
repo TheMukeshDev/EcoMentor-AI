@@ -1,55 +1,66 @@
-from app.services.carbon_service import CarbonService
+import pytest
 
 
 class TestCarbonService:
-    def setup_method(self):
-        self.service = CarbonService()
+    def test_calculate_default(self, carbon_service):
+        score = carbon_service.calculate("walking", 0, "none", "vegan", 0)
+        assert score == 0.5
 
-    def test_calculate_minimal_activity(self):
-        result = self.service.calculate("walking", 0, "none", "vegan", 0)
-        assert result == 0.5
+    def test_calculate_car_transport(self, carbon_service):
+        score = carbon_service.calculate("car", 10, "none", "vegan", 0)
+        assert score == 10.5
 
-    def test_calculate_car_commute(self):
-        result = self.service.calculate("car", 20, "1-2", "non_vegetarian", 0.5)
-        assert result > 0
+    def test_calculate_plane(self, carbon_service):
+        score = carbon_service.calculate("plane", 100, "none", "vegan", 0)
+        assert score == 200.5
 
-    def test_calculate_plane_high_impact(self):
-        result = self.service.calculate("plane", 1000, "none", "non_vegetarian", 0)
-        assert result > 2000
+    def test_calculate_ac_heavy(self, carbon_service):
+        score = carbon_service.calculate("walking", 0, "6+", "vegan", 0)
+        assert score == 4.5
 
-    def test_get_breakdown_returns_all_categories(self):
-        breakdown = self.service.get_breakdown("car", 50, "3-5", "vegetarian", 1)
+    def test_calculate_non_veg(self, carbon_service):
+        score = carbon_service.calculate("walking", 0, "none", "non_vegetarian", 0)
+        assert score == 3.0
+
+    def test_calculate_with_waste(self, carbon_service):
+        score = carbon_service.calculate("walking", 0, "none", "vegan", 1)
+        assert score == 2.5
+
+    def test_get_breakdown_structure(self, carbon_service):
+        breakdown = carbon_service.get_breakdown("car", 10, "1-2", "vegetarian", 0.5)
         assert "total" in breakdown
         assert "transport" in breakdown
         assert "electricity" in breakdown
         assert "food" in breakdown
         assert "waste" in breakdown
+        assert breakdown["transport"] == 10.0
 
-    def test_get_breakdown_sums_to_total(self):
-        breakdown = self.service.get_breakdown("bus", 10, "1-2", "vegan", 0.2)
-        expected = (
-            breakdown["transport"]
-            + breakdown["electricity"]
-            + breakdown["food"]
-            + breakdown["waste"]
-        )
-        assert breakdown["total"] == round(expected, 2)
+    def test_calculate_unknown_transport_defaults(self, carbon_service):
+        score = carbon_service.calculate("unknown_mode", 10, "none", "vegan", 0)
+        assert score == 0.5
 
-    def test_calculate_with_defaults(self):
-        result = self.service.calculate("walking", 0, "none", "vegetarian", 0)
-        assert result > 0
+    def test_regional_factor_eu(self):
+        from app.services.carbon_service import CarbonService
 
-    def test_invalid_transport_defaults_to_zero(self):
-        result = self.service.calculate("unknown", 100, "none", "vegan", 0)
-        assert result >= 0
+        svc = CarbonService(region="eu")
+        score = svc.calculate("walking", 0, "1-2", "vegan", 0)
+        assert score == pytest.approx(0.5 + 1.5 * 0.5 * 0.65, rel=0.01)
 
-    def test_calculate_bicycle_same_as_walking(self):
-        walk = self.service.calculate("bicycle", 10, "none", "vegan", 0)
-        bike = self.service.calculate("bicycle", 10, "none", "vegan", 0)
-        assert walk == bike
+    def test_regional_factor_india(self):
+        from app.services.carbon_service import CarbonService
 
-    def test_plastic_waste_scales_linearly(self):
-        low_waste = self.service.calculate("walking", 0, "none", "vegan", 1)
-        high_waste = self.service.calculate("walking", 0, "none", "vegan", 5)
-        waste_diff = high_waste - low_waste
-        assert waste_diff == 8.0
+        svc = CarbonService(region="india")
+        score = svc.calculate("walking", 0, "1-2", "vegan", 0)
+        assert score == pytest.approx(0.5 + 1.5 * 0.5 * 1.2, rel=0.01)
+
+    def test_set_region(self, carbon_service):
+        carbon_service.set_region("eu")
+        assert carbon_service.region == "eu"
+
+    def test_get_regions(self):
+        from app.services.carbon_service import CarbonService
+
+        regions = CarbonService.get_regions()
+        assert "us" in regions
+        assert "eu" in regions
+        assert "global" in regions

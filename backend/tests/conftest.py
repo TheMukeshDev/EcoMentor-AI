@@ -70,6 +70,16 @@ def mock_carbon_history_repo(mocker):
 
 
 @pytest.fixture
+def mock_ai_report_repo(mocker):
+    return mocker.MagicMock(name="AIReportRepository")
+
+
+@pytest.fixture
+def mock_ai_service(mocker):
+    return mocker.MagicMock(name="AIService")
+
+
+@pytest.fixture
 def auth_service(mock_user_repo):
     from app.services.auth_service import AuthService
 
@@ -88,13 +98,30 @@ def dashboard_service(mock_carbon_history_repo, mock_activity_repo, mock_user_re
 
 
 @pytest.fixture
-def activity_service(mock_activity_repo, mock_carbon_history_repo, mock_user_repo):
+def dashboard_service_with_ai(
+    mock_carbon_history_repo, mock_activity_repo, mock_user_repo, mock_ai_service
+):
+    from app.services.dashboard_service import DashboardService
+
+    return DashboardService(
+        carbon_history_repository=mock_carbon_history_repo,
+        activity_repository=mock_activity_repo,
+        user_repository=mock_user_repo,
+        ai_service=mock_ai_service,
+    )
+
+
+@pytest.fixture
+def activity_service(
+    mock_activity_repo, mock_carbon_history_repo, mock_user_repo, mock_ai_service
+):
     from app.services.activity_service import ActivityService
 
     return ActivityService(
         activity_repository=mock_activity_repo,
         carbon_history_repository=mock_carbon_history_repo,
         user_repository=mock_user_repo,
+        ai_service=mock_ai_service,
     )
 
 
@@ -124,3 +151,10 @@ def leaderboard_service(mock_user_repo, mock_footprint_repo):
         user_repository=mock_user_repo,
         footprint_repository=mock_footprint_repo,
     )
+
+
+@pytest.fixture
+def carbon_service():
+    from app.services.carbon_service import CarbonService
+
+    return CarbonService()

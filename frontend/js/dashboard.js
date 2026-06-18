@@ -60,11 +60,12 @@ async function renderDashboard() {
       <div class="chart-container">
         <h3>Carbon Trend</h3>
         <div class="chart-wrapper">
-          <canvas id="carbonChart"></canvas>
+          <canvas id="carbonChart" role="img" aria-label="Carbon score trend chart"></canvas>
         </div>
+        <div class="sr-only" id="carbonChartData" role="region" aria-live="polite"></div>
         <div style="display:flex;gap:8px;margin-top:12px">
-          <button class="btn btn-secondary chart-range active" data-range="7">7 Days</button>
-          <button class="btn btn-secondary chart-range" data-range="30">30 Days</button>
+          <button class="btn btn-secondary chart-range active" data-range="7" aria-pressed="true">7 Days</button>
+          <button class="btn btn-secondary chart-range" data-range="30" aria-pressed="false">30 Days</button>
         </div>
       </div>
 
@@ -87,8 +88,12 @@ async function renderDashboard() {
 
     document.querySelectorAll('.chart-range').forEach(btn => {
       btn.addEventListener('click', async () => {
-        document.querySelectorAll('.chart-range').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.chart-range').forEach(b => {
+          b.classList.remove('active');
+          b.setAttribute('aria-pressed', 'false');
+        });
         btn.classList.add('active');
+        btn.setAttribute('aria-pressed', 'true');
         const days = btn.dataset.range;
         const res = await api(`/dashboard/history?period=last_${days}`).catch(() => ({ data: [] }));
         renderChart(res.data || []);
@@ -123,6 +128,10 @@ async function renderChart(history) {
     return d.slice(5);
   });
   const scores = history.map(e => e.carbon_score || 0);
+  const dataTable = document.getElementById('carbonChartData');
+  if (dataTable) {
+    dataTable.textContent = 'Carbon scores: ' + labels.map((l, i) => `${l}: ${scores[i]}`).join(', ');
+  }
   const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
   const primary = getCSSVar('--color-primary', '#2d6a4f');
   const muted = getCSSVar('--color-text-muted', '#718096');

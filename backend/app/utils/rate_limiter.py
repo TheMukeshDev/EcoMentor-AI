@@ -3,7 +3,7 @@ import threading
 import logging
 from functools import wraps
 
-from flask import request, jsonify, current_app
+from flask import request, jsonify, current_app, g
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +56,7 @@ class RateLimiter:
                 if scope == "ip":
                     identifier = request.remote_addr or "unknown"
                 elif scope == "user":
-                    identifier = getattr(request, "user_id", "anonymous")
+                    identifier = getattr(g, "user_id", "anonymous")
                 else:
                     identifier = "global"
 

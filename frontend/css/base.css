@@ -51,6 +51,8 @@ input, select, textarea {
 input:focus, select:focus, textarea:focus {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(45, 106, 79, 0.15);
+}
+input:focus:not(:focus-visible), select:focus:not(:focus-visible), textarea:focus:not(:focus-visible) {
   outline: none;
 }
 input[aria-invalid="true"], select[aria-invalid="true"] {

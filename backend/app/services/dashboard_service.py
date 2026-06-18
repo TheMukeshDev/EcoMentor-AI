@@ -1,11 +1,21 @@
 from datetime import datetime, timezone, timedelta
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class DashboardService:
-    def __init__(self, carbon_history_repository, activity_repository, user_repository):
+    def __init__(
+        self,
+        carbon_history_repository,
+        activity_repository,
+        user_repository,
+        ai_service=None,
+    ):
         self._carbon_history_repo = carbon_history_repository
         self._activity_repo = activity_repository
         self._user_repo = user_repository
+        self._ai_service = ai_service
 
     def get_summary(self, user_id):
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -102,3 +112,51 @@ class DashboardService:
             "change": abs(change),
             "direction": direction,
         }
+
+    def get_insights(self, user_id):
+        summary = self.get_summary(user_id)
+        history = self.get_history(user_id, "last_7")
+        trends = self.get_trends(user_id)
+
+        if not self._ai_service:
+            return {
+                "summary": summary,
+                "trends": trends,
+                "ai_insight": None,
+                "ai_tip": None,
+            }
+
+        try:
+            scores = {
+                "score": summary.get("current_score", 0),
+                "transport": "walking",
+                "food": "vegetarian",
+                "ac_usage": "none",
+            }
+            recs = self._ai_service.get_recommendations(user_id, scores)
+            tip = (
+                recs.get("tips", [None])[0]
+                if recs and isinstance(recs.get("tips"), list)
+                else None
+            )
+            direction = trends.get("direction", "stable")
+            if direction == "down":
+                insight = f"Your carbon score dropped by {trends.get('change', 0)} points this week. Keep it up!"
+            elif direction == "up":
+                insight = f"Your carbon score rose by {trends.get('change', 0)} points. Try the tips below to reverse the trend."
+            else:
+                insight = "Your carbon footprint is stable. Small changes can make a big difference!"
+            return {
+                "summary": summary,
+                "trends": trends,
+                "ai_insight": insight,
+                "ai_tip": tip,
+            }
+        except Exception as e:
+            logger.warning("Failed to generate AI insights: %s", e)
+            return {
+                "summary": summary,
+                "trends": trends,
+                "ai_insight": None,
+                "ai_tip": None,
+            }

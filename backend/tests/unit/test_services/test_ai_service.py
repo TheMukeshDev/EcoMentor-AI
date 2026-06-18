@@ -57,17 +57,21 @@ class TestAIService:
         result = ai_service.get_daily_mission("user-123", context)
         assert result == {"test": "response"}
 
-    def test_returns_none_when_gemini_fails(self, ai_service, mocker):
+    def test_returns_fallback_when_gemini_fails(self, ai_service, mocker):
         mocker.patch.object(ai_service, "_call_gemini", return_value=None)
         result = ai_service.get_recommendations("user-123", {"score": 50})
-        assert result is None
+        assert result is not None
+        assert isinstance(result, list)
+        assert len(result) > 0
 
-    def test_returns_none_without_api_key(self):
+    def test_returns_fallback_without_api_key(self):
         from app.services.ai_service import AIService
 
         service = AIService(api_key=None)
         result = service.get_recommendations("user-123", {"score": 50})
-        assert result is None
+        assert result is not None
+        assert isinstance(result, list)
+        assert len(result) > 0
 
     def test_cache_invalidation(self, ai_service, mock_gemini):
         data = {

@@ -1,356 +1,145 @@
-# EcoMentor AI — Architecture Guide
+# EcoMentor AI Architecture
 
-## 1. Folder Structure
+## Project Structure
 
 ```
 ecomentor-ai/
-│
-├── backend/
+├── backend/                    Flask API (Cloud Run)
+│   ├── main.py                 Entry point
+│   ├── Dockerfile              Container config
+│   ├── requirements.txt        Python dependencies
+│   ├── .env.example            Environment template
+│   ├── firestore.rules         Firestore security rules
+│   ├── firestore.indexes.json  Composite indexes
 │   ├── app/
-│   │   ├── __init__.py              # Flask app factory (create_app)
-│   │   ├── config.py                # Environment-based config classes
-│   │   ├── extensions.py            # Firestore client singleton
-│   │   │
-│   │   ├── blueprints/              # Route layer — API endpoints
-│   │   │   ├── __init__.py
-│   │   │   ├── auth/                #  /api/auth/*
-│   │   │   │   ├── __init__.py
-│   │   │   │   ├── routes.py
-│   │   │   │   └── schemas.py       # Request/response shapes
-│   │   │   ├── footprint/           #  /api/footprint/*
-│   │   │   │   ├── __init__.py
-│   │   │   │   ├── routes.py
-│   │   │   │   └── schemas.py
-│   │   │   ├── recommendations/     #  /api/recommendations/*
-│   │   │   │   ├── __init__.py
-│   │   │   │   ├── routes.py
-│   │   │   │   └── schemas.py
-│   │   │   └── challenges/          #  /api/challenges/*
-│   │   │       ├── __init__.py
-│   │   │       ├── routes.py
-│   │   │       └── schemas.py
-│   │   │
-│   │   ├── services/                # Business logic layer
-│   │   │   ├── __init__.py
-│   │   │   ├── auth_service.py
-│   │   │   ├── footprint_service.py
-│   │   │   ├── recommendation_service.py
-│   │   │   └── challenge_service.py
-│   │   │
-│   │   ├── repositories/            # Data access layer (Firestore)
-│   │   │   ├── __init__.py
-│   │   │   ├── base_repository.py   # CRUD mixin
+│   │   ├── __init__.py         App factory (create_app)
+│   │   ├── config.py           3 env classes (Dev/Test/Prod)
+│   │   ├── extensions.py       Firestore client singleton
+│   │   ├── blueprints/
+│   │   │   ├── auth/           Registration, login, profile
+│   │   │   ├── dashboard/      Summary, history, trends
+│   │   │   ├── activities/     Log, list, get, delete activities
+│   │   │   ├── ai/             Recommendations, reports, chat, what-if, feedback
+│   │   │   └── leaderboard/    Global & friends leaderboard
+│   │   ├── middleware/
+│   │   │   ├── auth_middleware.py   Firebase JWT verification
+│   │   │   └── csrf.py              Nonce-based CSRF with TTL
+│   │   ├── services/
+│   │   │   ├── auth_service.py      Firebase Auth integration
+│   │   │   ├── dashboard_service.py Summary/history/trends logic
+│   │   │   ├── activity_service.py  Activity + carbon + streak + points
+│   │   │   ├── ai_service.py        Gemini client + conversation memory + caching
+│   │   │   ├── carbon_service.py    Carbon calculator with regional factors
+│   │   │   ├── cache_service.py     Dual cache (in-memory LRU + Firestore)
+│   │   │   ├── prompt_service.py    Prompt templates + sanitization
+│   │   │   ├── points_service.py    Gamification levels
+│   │   │   ├── streak_service.py    Consecutive day tracking
+│   │   │   └── leaderboard_service.py User ranking & friends
+│   │   ├── repositories/       Firestore query layer
+│   │   │   ├── base_repository.py       CRUD + query with cursor pagination
 │   │   │   ├── user_repository.py
+│   │   │   ├── activity_repository.py
+│   │   │   ├── carbon_history_repository.py
 │   │   │   ├── footprint_repository.py
 │   │   │   ├── recommendation_repository.py
-│   │   │   └── challenge_repository.py
-│   │   │
-│   │   ├── models/                  # Pydantic / dataclass schemas
-│   │   │   ├── __init__.py
-│   │   │   ├── user.py
-│   │   │   ├── footprint.py
-│   │   │   ├── recommendation.py
-│   │   │   └── challenge.py
-│   │   │
-│   │   ├── middleware/              # Request interceptors
-│   │   │   ├── __init__.py
-│   │   │   └── auth_middleware.py   # JWT verification decorator
-│   │   │
-│   │   └── utils/                   # Shared helpers
-│   │       ├── __init__.py
-│   │       ├── errors.py            # Custom exception classes
-│   │       ├── responses.py         # Standardised JSON responses
-│   │       └── validators.py        # Input validation helpers
-│   │
-│   ├── tests/
-│   │   ├── __init__.py
-│   │   ├── conftest.py              # Fixtures (test client, Firestore emulator)
-│   │   ├── unit/
-│   │   │   ├── test_services/
-│   │   │   └── test_repositories/
-│   │   └── integration/
-│   │       ├── test_blueprints/
-│   │       └── test_api/
-│   │
-│   ├── requirements.txt
-│   ├── Dockerfile
-│   ├── .env.example
-│   └── main.py                      # Entry point
-│
-├── frontend/
-│   ├── public/
-│   │   ├── index.html               # SPA shell
-│   │   ├── 404.html                 # Firebase Hosting fallback
-│   │   └── favicon.ico
-│   │
-│   ├── src/
-│   │   ├── css/
-│   │   │   ├── base/
-│   │   │   │   ├── reset.css
-│   │   │   │   └── variables.css    # Design tokens
-│   │   │   ├── components/          # Reusable UI pieces
-│   │   │   │   ├── navbar.css
-│   │   │   │   ├── cards.css
-│   │   │   │   ├── forms.css
-│   │   │   │   ├── buttons.css
-│   │   │   │   └── modal.css
-│   │   │   ├── layouts/             # Page-level structure
-│   │   │   │   ├── dashboard.css
-│   │   │   │   └── auth.css
-│   │   │   └── pages/               # Page-specific overrides
-│   │   │       ├── home.css
-│   │   │       ├── calculator.css
-│   │   │       └── challenges.css
-│   │   │
-│   │   ├── js/
-│   │   │   ├── app.js               # Router initialisation
-│   │   │   ├── api/                 # HTTP client layer (fetch wrappers)
-│   │   │   │   ├── client.js        # Base fetch with auth header injection
-│   │   │   │   ├── auth.js
-│   │   │   │   ├── footprint.js
-│   │   │   │   └── challenges.js
-│   │   │   ├── services/            # Frontend business / state logic
-│   │   │   │   ├── auth_service.js
-│   │   │   │   ├── footprint_service.js
-│   │   │   │   └── storage_service.js  # localStorage / session wrapper
-│   │   │   ├── utils/               # Pure helpers
-│   │   │   │   ├── helpers.js
-│   │   │   │   └── validators.js
-│   │   │   └── components/          # DOM-manipulation modules
-│   │   │       ├── navbar.js
-│   │   │       ├── charts.js        # Chart.js or similar
-│   │   │       └── forms.js
-│   │   │
-│   │   └── assets/
-│   │       ├── images/
-│   │       └── icons/
-│   │
-│   ├── firebase.json
-│   ├── .firebaserc
-│   └── storage.rules
-│
+│   │   │   ├── challenge_repository.py
+│   │   │   ├── report_repository.py
+│   │   │   └── ai_report_repository.py
+│   │   ├── models/             Data classes (layer contract)
+│   │   └── utils/
+│   │       ├── errors.py       AppError hierarchy
+│   │       ├── responses.py    JSON response builders
+│   │       ├── validators.py   Pydantic body validation
+│   │       ├── rate_limiter.py Token bucket per scope
+│   │       └── secrets.py      Env/Secret Manager resolution
+│   └── tests/                  80+ tests (pytest)
+├── frontend/                   Vanilla JS SPA (Firebase Hosting)
+│   ├── index.html              Shell with nav, bottom nav, footer
+│   ├── 404.html                Fallback page
+│   ├── manifest.json           PWA manifest (SVG icons)
+│   ├── sw.js                   Service worker
+│   ├── public/                 Static assets (SVG icons)
+│   ├── css/                    Variables, reset, base, layout, components, utilities
+│   ├── js/
+│   │   ├── main.js             Bootstrap + route registration
+│   │   ├── router.js           Hash-based SPA router + auth nav
+│   │   ├── api-client.js       Fetch wrapper + JWT + CSRF
+│   │   ├── store.js            Simple pub/sub state
+│   │   ├── theme.js            Dark/light toggle
+│   │   ├── home.js             Landing page
+│   │   ├── auth.js             Login/signup forms
+│   │   ├── dashboard.js        Summary cards, chart, insights
+│   │   ├── activities.js       Multi-step activity wizard
+│   │   ├── coach.js            AI conversation + what-if analyzer
+│   │   ├── leaderboard.js      Global ranking table
+│   │   ├── achievements.js     Badges and levels
+│   │   ├── report.js           Weekly/monthly reports
+│   │   ├── profile.js          User profile
+│   │   ├── settings.js         Preferences
+│   │   ├── skeletons.js        Loading skeletons
+│   │   └── utils.js            htmlEscape, toast
+│   └── tests/                  Vitest + jsdom (3 test files)
+├── firebase.json               Firebase Hosting + Rewrites config
+├── .github/workflows/          CI/CD pipelines
+├── docker-compose.yml          Local dev with Firestore emulator
 ├── docs/
-│   ├── architecture.md
-│   ├── api-reference.md
-│   └── setup-guide.md
-│
-├── .github/
-│   └── workflows/
-│       ├── backend-ci.yml           # Lint → test → build image
-│       ├── frontend-ci.yml          # Lint → build → deploy Hosting
-│       └── deploy.yml               # CI/CD to Cloud Run + Hosting
-│
-├── .gitignore
-└── README.md
+│   ├── architecture.md         This file
+│   ├── security.md             STRIDE threat model
+│   └── accessibility.md        WCAG 2.1 AA checklist
+└── README.md                   Project overview + setup
 ```
 
----
-
-## 2. Responsibility of Each Folder
-
-| Folder / File | Responsibility |
-|---|---|
-| **backend/app** | Flask application core — factory, config, extensions |
-| **blueprints/** | Thin route handlers. Parse request → delegate to service → return response. One blueprint per domain. |
-| **services/** | All business logic. Orchestrates repositories, calls external APIs, enforces rules. Never imports Flask `request` or `g`. |
-| **repositories/** | Every Firestore query lives here. One class per entity. `base_repository.py` provides generic `get`, `set`, `query`, `delete`. |
-| **models/** | Data shapes (dataclasses/Pydantic). Defines the contract between layers. |
-| **middleware/** | Pre-request hooks — JWT verification, rate-limiting, request ID injection. |
-| **utils/** | Pure, stateless helpers — error classes, response builders, validation functions. |
-| **tests/** | Mirrors `app/` structure. Unit tests mock repositories; integration tests use Firestore emulator. |
-| **frontend/src/css/** | Design tokens in `variables.css`, then component → layout → page cascade. Strict BEM-like naming. |
-| **frontend/src/js/api/** | Thin fetch wrappers. One file per backend domain. `client.js` adds `Authorization: Bearer` and base URL. |
-| **frontend/src/js/services/** | Frontend state management — caches, transforms, and exposes data to UI components. |
-| **frontend/src/js/components/** | DOM builders. Each module exports functions that accept state and return DOM strings or nodes. |
-| **.github/workflows/** | CI/CD pipelines. Backend tests on PR, auto-deploy to Cloud Run on merge to `main`. |
-
----
-
-## 3. Request Flow Diagram
+## Layer Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Browser (Firebase Hosting)                                 │
-│  ┌──────────┐   ┌───────────┐   ┌───────────────────────┐  │
-│  │ HTML/CSS │   │ JS SPA   │   │ JS API Client         │  │
-│  │ (static) │   │ (router)  │   │ (fetch + auth header) │  │
-│  └──────────┘   └───────────┘   └──────────┬────────────┘  │
-│                                            │               │
-└────────────────────────────────────────────┼───────────────┘
-                                             │ HTTPS
-                                             ▼
-┌─────────────────────────────────────────────────────────────┐
-│  Cloud Run (Flask)                                          │
-│                                                             │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │  main.py (WSGI entry point)                         │    │
-│  └─────────────────────┬───────────────────────────────┘    │
-│                        │                                     │
-│  ┌─────────────────────▼───────────────────────────────┐    │
-│  │  Middleware Pipeline                                 │    │
-│  │  ┌──────────┐  ┌──────────┐  ┌──────────────────┐  │    │
-│  │  │ CORS     │  │ Auth JWT │  │ Request ID       │  │    │
-│  │  │ (Flask-  │  │ (before  │  │ (logging/tracing) │  │    │
-│  │  │  CORS)   │  │  request)│  │                  │  │    │
-│  │  └──────────┘  └──────────┘  └──────────────────┘  │    │
-│  └─────────────────────┬───────────────────────────────┘    │
-│                        │                                     │
-│  ┌─────────────────────▼───────────────────────────────┐    │
-│  │  Blueprint Router                                   │    │
-│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌────────┐ │    │
-│  │  │ Auth     │ │Footprint │ │Recommend │ │Chall.  │ │    │
-│  │  │/api/auth │ │/api/foot │ │/api/rec  │ │/api/ch │ │    │
-│  │  └────┬─────┘ └────┬─────┘ └────┬─────┘ └───┬────┘ │    │
-│  └───────┼────────────┼────────────┼────────────┼──────┘    │
-│          │            │            │            │           │
-│  ┌───────▼────────────▼────────────▼────────────▼──────┐    │
-│  │  Service Layer                                      │    │
-│  │  - auth_service.py                                  │    │
-│  │  - footprint_service.py                             │    │
-│  │  - recommendation_service.py                        │    │
-│  │  - challenge_service.py                             │    │
-│  │  (business rules, cross-cutting logic, caching)     │    │
-│  └──────────┬──────────────────────────────────────────┘    │
-│             │                                               │
-│  ┌──────────▼──────────────────────────────────────────┐    │
-│  │  Repository Layer                                   │    │
-│  │  - base_repository.py (generic CRUD)                │    │
-│  │  - user_repository.py                               │    │
-│  │  - footprint_repository.py                          │    │
-│  │  - recommendation_repository.py                     │    │
-│  │  - challenge_repository.py                          │    │
-│  │  (only Firestore queries; no business rules)        │    │
-│  └──────────┬──────────────────────────────────────────┘    │
-│             │                                               │
-└─────────────┼───────────────────────────────────────────────┘
-              │
-              ▼
-   ┌──────────────────────┐
-   │    Firestore         │
-   │  ┌────────────────┐  │
-   │  │ users          │  │
-   │  │ footprints     │  │
-   │  │ recommendations│  │
-   │  │ challenges     │  │
-   │  │ progress       │  │
-   │  └────────────────┘  │
-   └──────────────────────┘
+│                     Blueprint (Routes)                      │
+│  Parse request → Auth → Rate limit → Validate → Delegate   │
+├─────────────────────────────────────────────────────────────┤
+│                       Service Layer                         │
+│  Business logic, orchestration, rules, AI conversation      │
+├─────────────────────────────────────────────────────────────┤
+│                     Repository Layer                        │
+│  Firestore queries, cursor pagination, zero business logic  │
+├─────────────────────────────────────────────────────────────┤
+│                     Firestore (DB)                          │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### Step-by-step walkthrough
-
-1. **Browser** serves static files from **Firebase Hosting** (CDN edge).
-2. JS `api/client.js` constructs an HTTP request with `Authorization: Bearer <token>` and sends it to **Cloud Run**.
-3. **Flask middleware** runs first — CORS headers, JWT verification, request-ID injection.
-4. The request reaches the appropriate **Blueprint route** (e.g. `footprint/routes.py`).
-5. The route extracts parameters, calls the **Service** layer (e.g. `FootprintService.calculate()`).
-6. The service applies business rules, then delegates data access to a **Repository** (e.g. `FootprintRepository`).
-7. The repository executes the **Firestore** query (read/write) and returns raw data.
-8. The service transforms data, returns a result to the blueprint.
-9. The blueprint wraps the result in a **standardised JSON response** (`utils/responses.py`).
-10. The browser receives the response and the JS component updates the DOM.
-
----
-
-## 4. Deployment Architecture
+## AI Architecture
 
 ```
-                              ┌─────────────────────────┐
-                              │     GitHub Actions       │
-                              │  (CI/CD)                 │
-                              └────┬──────────┬──────────┘
-                                   │          │
-                            push to main    PR to main
-                                   │          │
-                    ┌──────────────┤          ├──────────────┐
-                    │              │          │              │
-                    ▼              ▼          ▼              ▼
-           ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌────────────┐
-           │ Lint &     │  │ Build &    │  │ Lint &     │  │ Build &    │
-           │ Test (BE)  │  │ Push Image │  │ Test (FE)  │  │ Deploy     │
-           │            │  │ to Artifact│  │            │  │ Hosting    │
-           └────────────┘  │ Registry   │  └────────────┘  │ (staging)  │
-                           └─────┬──────┘                  └────────────┘
-                                 │
-                                 ▼
-                     ┌─────────────────────┐
-                     │  Cloud Run (Flask)  │
-                     │                     │
-                     │  - autoscaling      │
-                     │  - min 1, max 10    │
-                     │  - 256 MB RAM       │
-                     │  - 60s timeout      │
-                     │  - env vars from    │
-                     │    Secret Manager   │
-                     └──────────┬──────────┘
-                                │
-                     ┌──────────▼──────────┐
-                     │   Firestore         │
-                     │   (Native mode)     │
-                     │                     │
-                     │  - Indexes via      │
-                     │    firestore.indexes │
-                     │    .json            │
-                     │  - Security rules   │
-                     │    in firestore     │
-                     │    .rules           │
-                     └─────────────────────┘
-
-┌──────────────────────────────────────────────────────────────────┐
-│  Firebase Hosting                                               │
-│                                                                  │
-│  ┌────────────────┐   ┌────────────────┐   ┌────────────────┐   │
-│  │ /              │   │ /api/*         │   │ /__/*          │   │
-│  │ static assets  │   │ rewrite to     │   │ Firebase       │   │
-│  │ (HTML/CSS/JS)  │   │ Cloud Run      │   │ internals      │   │
-│  └────────────────┘   └────────────────┘   └────────────────┘   │
-│                                                                  │
-│  Rewrite rule in firebase.json:                                  │
-│    "rewrites": [                                                 │
-│      {"source": "/api/**", "run": {"serviceId": "ecomentor-api"}}│
-│    ]                                                             │
-└──────────────────────────────────────────────────────────────────┘
+┌──────────────┐     ┌──────────────┐     ┌─────────────┐
+│  AI Routes   │────▶│  AIService   │────▶│PromptService│
+│  /api/ai/*   │     │              │     │ (templates) │
+└──────────────┘     │ • Chat       │     └─────────────┘
+                     │ • Recommend  │            │
+                     │ • Report     │            ▼
+                     │ • Personality│     ┌─────────────┐
+                     │ • Mission    │     │   Gemini    │
+                     │ • What-If    │     │ 2.0 Flash   │
+                     │ • Feedback   │     └─────────────┘
+                     │ • Cache      │
+                     │ • Memory     │
+                     └──────────────┘
 ```
 
-### Key decisions
+## Request Flow
 
-| Decision | Rationale |
-|---|---|
-| **Firebase Hosting + Cloud Run** | Single Google Cloud surface; Hosting rewrites `/api/*` to Cloud Run so no CORS needed in production. |
-| **Blueprint per domain** | Each domain can be worked on independently. Easy to extract into a microservice later. |
-| **Service layer isolation** | Business logic is testable without Flask or Firestore. Swap Firestore for PostgreSQL by swapping only the repository layer. |
-| **Repository pattern** | Every Firestore query is in exactly one place. No raw Firestore calls in blueprints or services. |
-| **Pydantic/dataclass models** | Validates data at layer boundaries. Catches type errors early. |
-| **No ORM** | Firestore is schema-less by nature. Repositories use the native `google-cloud-firestore` library directly. |
-| **JS API client layer** | All fetch calls go through `api/client.js` so auth headers, error handling, and base URLs are centralised. |
+1. User action → Frontend SPA route change
+2. Route handler calls `api('/path')` → fetch with JWT + CSRF headers
+3. Firebase Hosting rewrites `/api/*` to Cloud Run
+4. Flask blueprint: auth middleware → rate limiter → CSRF (POST) → validation → service
+5. Service orchestrates repositories, applies business logic
+6. Response flows back as JSON
 
----
+## Key Design Decisions
 
-## 5. Layer Dependency Rule
-
-```
-  Blueprint (depends on →) Service (depends on →) Repository
-       │                        │                        │
-       │                        ▼                        │
-       └───────────── Model ◄───┴───► Model ◄────────────┘
-```
-
-- **Blueprint** imports Service + Model. Never imports Repository.
-- **Service** imports Repository + Model. Never imports Flask globals (`request`, `g`, `session`).
-- **Repository** imports Model + Firestore client. Contains zero business logic.
-- **Model** imports nothing from the app. Pure data definition.
-
-This enforces a strict **unidirectional dependency** — inner layers know nothing about outer layers.
-
----
-
-## 6. Environment Strategy
-
-| Environment | Firestore | Cloud Run Service Name | Firebase Hosting Project |
-|---|---|---|---|
-| `local` | Emulator | N/A | `ecomentor-dev` |
-| `dev` | Dev project | `ecomentor-api-dev` | `ecomentor-dev` |
-| `staging` | Staging project | `ecomentor-api-staging` | `ecomentor-staging` |
-| `prod` | Production project | `ecomentor-api` | `ecomentor` |
-
-Config is loaded via `app/config.py` using `APP_ENV` env var. Secrets stored in **Google Secret Manager**, not in `.env` (except for local development).
+- **Vanilla JS frontend**: Zero build step for rapid iteration; Vite for dev bundling
+- **Firestore**: Serverless NoSQL; composite indexes for query performance
+- **Gemini 2.0 Flash**: Low latency, cost-effective for real-time coaching
+- **Dual cache**: In-memory LRU (hot reads) + Firestore (persistence)
+- **Nonce-based CSRF**: Rotation on each request, 1-hour TTL
+- **Cursor pagination**: Firestore `start_after` for scalable list endpoints
+- **Regional carbon factors**: Grid intensity varies by geography
+- **Conversation memory**: Per-user in-memory chat history (max 50 turns)

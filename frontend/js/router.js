@@ -21,6 +21,9 @@ export function navigate(hash) {
       });
     });
   } else {
+    if (path !== '/') {
+      console.warn(`Route not found: "${path}" (from hash: "${hash}")`);
+    }
     app.innerHTML = `
       <div class="error-state" style="padding:80px 20px">
         <span class="empty-icon" style="font-size:4rem">&#128683;</span>

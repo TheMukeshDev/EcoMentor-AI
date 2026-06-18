@@ -63,6 +63,11 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Install dependencies and build
+        run: |
+          npm ci
+          npm run build
+
       - name: Deploy to Firebase Hosting
         run: |
           npx firebase-tools deploy \

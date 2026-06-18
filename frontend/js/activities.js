@@ -31,7 +31,7 @@ function renderWizard() {
           </div>
         `).join('')}
         <div class="wizard-nav">
-          <button type="button" class="btn btn-ghost" id="wizard-prev" style="visibility:hidden">Back</button>
+          <button type="button" class="btn btn-ghost" id="wizard-prev" hidden>Back</button>
           <button type="button" class="btn btn-primary" id="wizard-next">Next</button>
         </div>
       </form>
@@ -41,20 +41,36 @@ function renderWizard() {
   document.getElementById('wizard-next').addEventListener('click', onNext);
   document.getElementById('wizard-prev').addEventListener('click', onPrev);
 
-  document.querySelectorAll('.option-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const group = btn.closest('.option-group');
-      group.querySelectorAll('.option-btn').forEach(b => {
-        b.classList.remove('selected');
-        b.setAttribute('aria-checked', 'false');
+  document.querySelectorAll('.option-group').forEach(group => {
+    const buttons = group.querySelectorAll('.option-btn');
+    buttons.forEach((btn, idx) => {
+      btn.addEventListener('click', () => {
+        buttons.forEach(b => {
+          b.classList.remove('selected');
+          b.setAttribute('aria-checked', 'false');
+        });
+        btn.classList.add('selected');
+        btn.setAttribute('aria-checked', 'true');
+        const input = group.querySelector('input');
+        if (input) {
+          input.value = btn.dataset.value;
+          input.dispatchEvent(new Event('input'));
+        }
       });
-      btn.classList.add('selected');
-      btn.setAttribute('aria-checked', 'true');
-      const input = group.querySelector('input');
-      if (input) {
-        input.value = btn.dataset.value;
-        input.dispatchEvent(new Event('input'));
-      }
+      btn.addEventListener('keydown', (e) => {
+        let targetIdx = -1;
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          targetIdx = (idx + 1) % buttons.length;
+        } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          targetIdx = (idx - 1 + buttons.length) % buttons.length;
+        }
+        if (targetIdx >= 0) {
+          buttons[targetIdx].focus();
+          buttons[targetIdx].click();
+        }
+      });
     });
   });
 }
@@ -208,7 +224,11 @@ function showStep(index) {
   nextBtn.textContent = index === WIZARD_STEPS.length - 1 ? 'Submit' : 'Next';
 
   const prevBtn = document.getElementById('wizard-prev');
-  prevBtn.style.visibility = index === 0 ? 'hidden' : 'visible';
+  if (index === 0) {
+    prevBtn.hidden = true;
+  } else {
+    prevBtn.hidden = false;
+  }
 }
 
 async function submitActivity() {

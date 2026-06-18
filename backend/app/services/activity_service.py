@@ -7,12 +7,22 @@ from app.services.points_service import PointsService, POINTS_ACTIVITY_LOG
 
 
 class ActivityService:
-    def __init__(self, activity_repository, carbon_history_repository, user_repository):
+    def __init__(
+        self,
+        activity_repository,
+        carbon_history_repository,
+        user_repository,
+        ai_service=None,
+    ):
         self._activity_repo = activity_repository
         self._carbon_history_repo = carbon_history_repository
         self._carbon = CarbonService()
         self._streak_service = StreakService(user_repository)
         self._points_service = PointsService(user_repository)
+        self._ai_service = ai_service
+
+    def set_ai_service(self, ai_service):
+        self._ai_service = ai_service
 
     def log_activity(self, user_id, data):
         now = datetime.now(timezone.utc)
@@ -50,6 +60,9 @@ class ActivityService:
         if streak == 7:
             self._points_service.add_points(user_id, 100, reason="7_day_streak")
 
+        if self._ai_service:
+            self._ai_service.invalidate_cache(user_id)
+
         result = {**activity, "streak": streak}
         if points_result:
             result["points"] = points_result["points"]
@@ -84,8 +97,8 @@ class ActivityService:
             }
             self._carbon_history_repo.set(f"{user_id}_{date_str}", doc)
 
-    def list_activities(self, user_id, limit=None):
-        return self._activity_repo.find_by_user_id(user_id, limit=limit)
+    def list_activities(self, user_id, limit=None, cursor=None):
+        return self._activity_repo.find_by_user_id(user_id, limit=limit, cursor=cursor)
 
     def get_activity(self, activity_id):
         return self._activity_repo.get(activity_id)

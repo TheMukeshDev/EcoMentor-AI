@@ -31,7 +31,44 @@ class LeaderboardService:
         ]
 
     def get_friends_leaderboard(self, user_id: str) -> list[dict]:
-        # TODO(#12): implement with friends/relationships collection
-        # Requires a friends subcollection or a separate relationships
-        # collection to determine which users are friends of user_id
-        return []
+        user = self._user_repo.get(user_id)
+        if not user:
+            return []
+        friend_uids = user.get("friend_uids", [])
+        if not friend_uids:
+            return []
+        results = []
+        for fid in friend_uids:
+            friend = self._user_repo.get(fid)
+            if friend:
+                latest = self._footprint_repo.find_latest_by_user(fid)
+                results.append(
+                    {
+                        "uid": fid,
+                        "name": friend.get("name", "Anonymous"),
+                        "level": friend.get("level", "Beginner"),
+                        "points": friend.get("points", 0),
+                        "latest_score": latest.get("carbon_score", 0) if latest else 0,
+                    }
+                )
+        results.sort(key=lambda r: r["points"], reverse=True)
+        return results
+
+    def add_friend(self, user_id: str, friend_id: str) -> bool:
+        user = self._user_repo.get(user_id)
+        if not user:
+            return False
+        friend_uids = set(user.get("friend_uids", []))
+        if friend_id not in friend_uids:
+            friend_uids.add(friend_id)
+            self._user_repo.update(user_id, {"friend_uids": list(friend_uids)})
+        return True
+
+    def remove_friend(self, user_id: str, friend_id: str) -> bool:
+        user = self._user_repo.get(user_id)
+        if not user:
+            return False
+        friend_uids = set(user.get("friend_uids", []))
+        friend_uids.discard(friend_id)
+        self._user_repo.update(user_id, {"friend_uids": list(friend_uids)})
+        return True

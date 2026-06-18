@@ -9,6 +9,7 @@ from app.extensions import init_firestore
 from app.utils.errors import AppError
 from app.utils.secrets import validate_required_secrets
 from app.middleware.csrf import csrf_token_endpoint
+from app.utils.rate_limiter import rate_limiter
 
 
 def create_app(config_name=None):
@@ -99,6 +100,13 @@ def register_error_handlers(app):
 
 
 def register_request_hooks(app):
+    @app.before_request
+    def apply_global_rate_limit():
+        capacity = app.config.get("RATE_LIMIT_GLOBAL_CAPACITY", 1000)
+        refill = app.config.get("RATE_LIMIT_GLOBAL_REFILL", 10)
+        if not rate_limiter._get_bucket("global:all", capacity, refill).allow():
+            return jsonify({"status": "error", "message": "Too many requests"}), 429
+
     @app.before_request
     def log_request():
         app.logger.debug("%s %s", request.method, request.path)

@@ -15,6 +15,7 @@ class TestBlueprintRegistration:
         assert "/api/dashboard/summary" in rules
         assert "/api/dashboard/history" in rules
         assert "/api/dashboard/trends" in rules
+        assert "/api/dashboard/insights" in rules
 
     def test_activities_blueprint_has_expected_routes(self, app):
         rules = [rule.rule for rule in app.url_map.iter_rules()]
@@ -29,12 +30,20 @@ class TestBlueprintRegistration:
         assert "/api/ai/weekly-report" in rules
         assert "/api/ai/eco-personality" in rules
         assert "/api/ai/daily-mission" in rules
+        assert "/api/ai/chat" in rules
+        assert "/api/ai/what-if" in rules
+        assert "/api/ai/feedback" in rules
+        assert "/api/ai/chat/history" in rules
+        assert "/api/ai/chat/clear" in rules
+        assert "/api/ai/chat/stream" in rules
 
     def test_leaderboard_blueprint_has_expected_routes(self, app):
         rules = [rule.rule for rule in app.url_map.iter_rules()]
 
         assert "/api/leaderboard/global" in rules
         assert "/api/leaderboard/friends" in rules
+        assert "/api/leaderboard/friends/add" in rules
+        assert "/api/leaderboard/friends/remove" in rules
 
     def test_all_routes_have_unique_endpoint_names(self, app):
         rules = list(app.url_map.iter_rules())

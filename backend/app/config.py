@@ -34,6 +34,8 @@ class BaseConfig:
     RATE_LIMIT_STRICT = _parse_rate_limit(
         os.getenv("RATE_LIMIT_STRICT", "10;60"), (10, 60)
     )
+    RATE_LIMIT_GLOBAL_CAPACITY = int(os.getenv("RATE_LIMIT_GLOBAL_CAPACITY", "1000"))
+    RATE_LIMIT_GLOBAL_REFILL = int(os.getenv("RATE_LIMIT_GLOBAL_REFILL", "10"))
 
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
     FIREBASE_API_KEY = os.getenv("FIREBASE_API_KEY", "")

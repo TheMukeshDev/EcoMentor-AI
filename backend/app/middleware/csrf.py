@@ -4,18 +4,42 @@ import time
 import logging
 from functools import wraps
 
-from flask import request, jsonify, current_app
+from flask import request, jsonify, current_app, g
 
 logger = logging.getLogger(__name__)
 
-
-def generate_csrf_token():
-    return secrets.token_hex(32)
+CSRF_TOKEN_TTL = 3600
 
 
-def validate_csrf_token(token, secret):
-    expected = hmac.new(secret.encode(), b"csrf-token", "sha256").hexdigest()
-    return hmac.compare_digest(token, expected)
+def generate_csrf_token(user_id=None):
+    nonce = secrets.token_hex(32)
+    timestamp = str(int(time.time()))
+    secret = current_app.config.get("SECRET_KEY", "")
+    uid_part = user_id or ""
+    raw = f"{nonce}:{timestamp}:{uid_part}"
+    signature = hmac.new(secret.encode(), raw.encode(), "sha256").hexdigest()
+    return f"{nonce}:{timestamp}:{uid_part}:{signature}"
+
+
+def validate_csrf_token(token, secret, user_id=None):
+    try:
+        parts = token.split(":")
+        if len(parts) != 4:
+            return False
+        nonce, timestamp, uid_part, signature = parts
+        expected = hmac.new(
+            secret.encode(), f"{nonce}:{timestamp}:{uid_part}".encode(), "sha256"
+        ).hexdigest()
+        if not hmac.compare_digest(signature, expected):
+            return False
+        if uid_part and user_id and uid_part != user_id:
+            return False
+        token_time = int(timestamp)
+        if time.time() - token_time > CSRF_TOKEN_TTL:
+            return False
+        return True
+    except (ValueError, IndexError):
+        return False
 
 
 def csrf_protect(f):
@@ -41,14 +65,15 @@ def csrf_protect(f):
             ), 403
 
         secret = current_app.config.get("SECRET_KEY", "")
-        expected = hmac.new(secret.encode(), b"csrf-token", "sha256").hexdigest()
-
-        if not hmac.compare_digest(token, expected):
-            logger.warning("CSRF token mismatch on %s %s", request.method, request.path)
+        uid = getattr(g, "user_id", None)
+        if not validate_csrf_token(token, secret, uid):
+            logger.warning(
+                "CSRF token invalid/expired on %s %s", request.method, request.path
+            )
             return jsonify(
                 {
                     "status": "error",
-                    "message": "Invalid CSRF token",
+                    "message": "Invalid or expired CSRF token",
                 }
             ), 403
 
@@ -58,11 +83,10 @@ def csrf_protect(f):
 
 
 def csrf_token_endpoint():
-    token = generate_csrf_token()
-    secret = current_app.config.get("SECRET_KEY", "")
-    expected = hmac.new(secret.encode(), b"csrf-token", "sha256").hexdigest()
+    uid = getattr(g, "user_id", None)
+    token = generate_csrf_token(uid)
     return jsonify(
         {
-            "csrf_token": expected,
+            "csrf_token": token,
         }
     )

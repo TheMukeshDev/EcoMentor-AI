@@ -25,12 +25,12 @@ ecomentor-ai/
 #### API Endpoints
 
 | Blueprint | Prefix | Routes |
-|---|---|---|
+|---|---|---|---|
 | Auth | `/api/auth` | register, login, get_profile, update_profile |
 | Dashboard | `/api/dashboard` | get_summary, get_history, get_trends |
-| Activities | `/api/activities` | list, log, get, delete |
-| AI | `/api/ai` | recommendations, weekly-report, eco-personality, daily-mission |
-| Leaderboard | `/api/leaderboard` | global, friends |
+| Activities | `/api/activities` | list (cursor-paginated), log, get, delete |
+| AI | `/api/ai` | recommendations, weekly-report, eco-personality, daily-mission, chat, what-if, feedback, stream |
+| Leaderboard | `/api/leaderboard` | global, friends, add-friend, remove-friend |
 
 ### Frontend
 
@@ -74,6 +74,10 @@ Blueprint (/api/ai) → AIService → PromptService → Gemini API
 | **Weekly Report** | `GET /api/ai/weekly-report` | GET (auto context) | 7d | Auto-built from carbon_history + activities |
 | **Eco Personality** | `GET /api/ai/eco-personality` | GET (auto context) | 7d | Auto-built from weekly data |
 | **Daily Mission** | `GET /api/ai/daily-mission` | GET (auto context) | 24h | User level only |
+| **Conversational Chat** | `POST /api/ai/chat` | POST (message text) | None (in-memory) | `{message, user_id}` |
+| **What-If Analysis** | `POST /api/ai/what-if` | POST (scenario) | None | `{current_data, proposed_changes}` |
+| **Submit Feedback** | `POST /api/ai/feedback` | POST (feedback) | Invalidates cache | `{recommendation_id, rating, comment}` |
+| **Streaming Chat** | `POST /api/ai/chat/stream` | SSE stream | None | `{message, user_id}` |
 
 ### Prompt Engineering
 
@@ -82,13 +86,17 @@ All prompts enforce:
 - **Low token usage** — Max 512 output tokens, short fields (80-120 chars), concise instructions
 - **Consistent structure** — Every prompt includes example output format
 - **Context injection** — User level, streak, scores, and activity breakdown are injected dynamically
+- **Input sanitization** — All user-controlled inputs pass through `sanitize_input()` which strips `<>[]{}()` and truncates to max length
 
-Four prompt templates in `services/prompt_service.py`:
+Seven prompt templates in `services/prompt_service.py`:
 
 1. **Recommendations** — 3 practical tips based on current carbon data, each under 80 chars
 2. **Weekly Report** — Biggest contributor, best improvement, next week goal, motivational summary
 3. **Eco Personality** — Creative title, strength (lowest category), weakness (highest), next goal
 4. **Daily Mission** — One-day challenge for a college student, measurable, reward 30-100
+5. **Chat Response** — Conversational coach that references last 6 exchanges of history for continuity
+6. **What-If Analysis** — Analyzes potential impact of habit changes on carbon footprint
+7. **Feedback Prompt** — Thank-you response after user submits recommendation feedback
 
 ### AI Caching Strategy
 
@@ -101,19 +109,22 @@ Request → Check Cache (ai_reports Firestore collection)
 ```
 
 - **TTL**: 7 days for weekly report + eco personality, 1 day for recommendations + daily mission
-- **Dual cache**: In-memory dict (`CacheService._local`) for hot reads + Firestore (`ai_reports` collection) for persistence
+- **Dual cache**: LRU `OrderedDict` (`CacheService._local`, max 1000 entries) for hot reads + Firestore (`ai_reports` collection) for persistence
 - **Cache key**: `{user_id}:{report_type}`
 - **Validation**: Cache hit checks `expires_at >= now` before returning
 - **Invalidation**: `CacheService.invalidate(user_id, type)` clears specific entry; `invalidate(user_id)` clears all for user
+- **Auto-invalidation**: `ActivityService.log_activity()` triggers `ai_service.invalidate_cache(user_id)` so recommendations refresh after new data
+- **Feedback invalidation**: `submit_feedback()` invalidates the recommendation cache for the user
 
 ### AI Security
 
-- **Prompt injection protection**: All user inputs are validated via Pydantic before reaching prompt templates. User-provided strings are injected into pre-defined template slots, never into instruction text.
+- **Prompt injection protection**: All user inputs pass through `sanitize_input()` which strips `<>[]{}()` and truncates to max length before reaching prompt templates. User-provided strings are injected into pre-defined template slots, never into instruction text.
 - **Rate limiting**: Per-user token bucket (30 req/h for recommendations, 10 req/h for reports/personality, 20 req/h for missions) via `rate_limiter.limit()`
 - **API key management**: Gemini key via `GEMINI_API_KEY` env var (`.env` fallback in dev, Secret Manager in production)
 - **Output sanitization**: Gemini responses are parsed as JSON — any parse failure returns `None` (graceful degradation)
 - **Retry with backoff**: 3 retries with exponential backoff (1s, 2s, 4s) on transient failures
 - **No prompt leakage**: Templates are server-side only; the client never sees raw prompts
+- **Conversation memory isolation**: Chat history is kept per-user in-memory (max 50 entries), filtered to last 6 for prompt context
 
 ### Gemini Integration
 
@@ -145,9 +156,18 @@ Composite indexes: `(uid, type, expires_at)` for cache lookups, `(uid, type, gen
 ### Prerequisites
 
 - Python 3.12+
-- [Firestore emulator](https://cloud.google.com/firestore/docs/emulator)
+- [Firestore emulator](https://cloud.google.com/firestore/docs/emulator) — or Docker
 
-### Setup
+### Quick Start with Docker Compose
+
+```bash
+# Start everything (Firestore emulator + backend + frontend)
+docker-compose up
+# Backend: http://localhost:5000
+# Frontend: http://localhost:5173
+```
+
+### Manual Setup
 
 ```bash
 # Clone and enter backend
@@ -244,11 +264,23 @@ Blueprints never import repositories. Services never import Flask globals. Repos
 ### Security
 
 - Secrets via Google Secret Manager (`.env` fallback in dev)
-- CSRF protection on state-changing methods
+- Nonce-based CSRF protection with 1-hour TTL (replaces static HMAC)
 - Token bucket rate limiting (per-IP / per-user / global)
 - Pydantic request validation with field-level 422 errors
 - Security headers: `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`
 - Full threat model: [docs/security.md](docs/security.md)
+
+### Pagination
+
+List endpoints support cursor-based pagination for efficient data retrieval:
+
+```bash
+# Get first page
+GET /api/activities?user_id=xxx&limit=10
+
+# Get next page (pass cursor from previous response)
+GET /api/activities?user_id=xxx&limit=10&cursor=<last_document_id>
+```
 
 ### Carbon Calculator
 
@@ -261,9 +293,21 @@ The `CarbonService` calculates a daily carbon footprint score from four categori
 | **Food** | diet type | Vegan: 1, Vegetarian: 2, Non-veg: 6 kgCO₂ × 0.5 |
 | **Waste** | plastic waste (kg) | 2.0 kgCO₂/kg |
 
-`score = transportFactor × distance × 0.1 + acHours × 0.5 + foodFactor × 0.5 + plasticKg × 2.0`
+`score = transport × distance × 0.1 + acHours × 0.5 × gridFactor + foodFactor × 0.5 + plasticKg × 2.0`
 
 A breakdown per category is available via `CarbonService.get_breakdown()`.
+
+**Regional factors**: The `CarbonService` supports region-specific grid intensity factors for electricity calculations:
+
+| Region | Grid Intensity | Label |
+|---|---|---|
+| `global` | 1.0 | Global Average |
+| `us` | 0.85 | United States |
+| `eu` | 0.65 | Europe |
+| `india` | 1.2 | India |
+| `china` | 1.3 | China |
+
+Set via `CarbonService(region="eu")` or `carbon_service.set_region("india")`.
 
 ### Accessibility
 

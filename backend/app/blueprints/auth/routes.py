@@ -1,3 +1,5 @@
+import logging
+
 from flask import Blueprint, request
 
 from app.middleware.auth_middleware import require_auth
@@ -12,6 +14,8 @@ from app.blueprints.auth.schemas import (
 from app.extensions import db
 from app.repositories.user_repository import UserRepository
 from app.services.auth_service import AuthService
+
+logger = logging.getLogger(__name__)
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -31,7 +35,8 @@ def register():
             {"id_token": result["id_token"], "profile": result["profile"]}, 201
         )
     except Exception as e:
-        return error_response(str(e), 400)
+        logger.error("Registration failed: %s", e)
+        return error_response("Registration failed", 400)
 
 
 @auth_bp.route("/login", methods=["POST"])
@@ -45,7 +50,8 @@ def login():
             {"id_token": result["id_token"], "profile": result["profile"]}
         )
     except Exception as e:
-        return error_response(str(e), 401)
+        logger.error("Login failed: %s", e)
+        return error_response("Invalid credentials", 401)
 
 
 @auth_bp.route("/profile", methods=["GET"])
@@ -57,7 +63,8 @@ def get_profile():
         profile = _service.get_user_profile(g.user_id)
         return success_response(profile)
     except Exception as e:
-        return error_response(str(e), 404)
+        logger.error("Failed to get profile: %s", e)
+        return error_response("Profile not found", 404)
 
 
 @auth_bp.route("/profile", methods=["PUT"])
@@ -72,4 +79,5 @@ def update_profile():
         profile = _service.update_user_profile(g.user_id, data)
         return success_response(profile)
     except Exception as e:
-        return error_response(str(e), 400)
+        logger.error("Failed to update profile: %s", e)
+        return error_response("Failed to update profile", 400)

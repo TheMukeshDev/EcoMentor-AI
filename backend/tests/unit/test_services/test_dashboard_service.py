@@ -182,6 +182,101 @@ class TestDashboardService:
         assert result["direction"] == "stable"
         assert result["change"] == 0
 
+    def test_get_insights_returns_structure_without_ai(self, dashboard_service, mocker):
+        mocker.patch.object(
+            dashboard_service._user_repo,
+            "get",
+            return_value={"streak": 3},
+        )
+        mocker.patch.object(
+            dashboard_service._carbon_history_repo,
+            "find_by_user_and_date",
+            return_value={"carbon_score": 15.5},
+        )
+        mocker.patch.object(
+            dashboard_service._carbon_history_repo,
+            "find_by_user_and_date_range",
+            return_value=[
+                {"carbon_score": 10},
+                {"carbon_score": 20},
+            ],
+        )
+        mocker.patch.object(
+            dashboard_service._activity_repo,
+            "find_by_user_id",
+            return_value=[{"id": "a1"}, {"id": "a2"}, {"id": "a3"}],
+        )
+        result = dashboard_service.get_insights("user-123")
+        assert "summary" in result
+        assert "trends" in result
+        assert result["ai_insight"] is None
+        assert result["ai_tip"] is None
+
+    def test_get_insights_with_ai_returns_tip(self, dashboard_service_with_ai, mocker):
+        mocker.patch.object(
+            dashboard_service_with_ai._user_repo,
+            "get",
+            return_value={"streak": 1},
+        )
+        mocker.patch.object(
+            dashboard_service_with_ai._carbon_history_repo,
+            "find_by_user_and_date",
+            return_value={"carbon_score": 10},
+        )
+        mocker.patch.object(
+            dashboard_service_with_ai._carbon_history_repo,
+            "find_by_user_and_date_range",
+            return_value=[
+                {"carbon_score": 10},
+                {"carbon_score": 12},
+            ],
+        )
+        mocker.patch.object(
+            dashboard_service_with_ai._activity_repo,
+            "find_by_user_id",
+            return_value=[{"id": "a1"}],
+        )
+        dashboard_service_with_ai._ai_service.get_recommendations.return_value = {
+            "tips": ["Use public transport"]
+        }
+        result = dashboard_service_with_ai.get_insights("user-123")
+        assert result["ai_tip"] == "Use public transport"
+        assert result["ai_insight"] is not None
+
+    def test_get_insights_with_ai_fallback_on_failure(
+        self, dashboard_service_with_ai, mocker
+    ):
+        mocker.patch.object(
+            dashboard_service_with_ai._user_repo,
+            "get",
+            return_value={"streak": 0},
+        )
+        mocker.patch.object(
+            dashboard_service_with_ai._carbon_history_repo,
+            "find_by_user_and_date",
+            return_value={"carbon_score": 0},
+        )
+        mocker.patch.object(
+            dashboard_service_with_ai._carbon_history_repo,
+            "find_by_user_and_date_range",
+            return_value=[],
+        )
+        mocker.patch.object(
+            dashboard_service_with_ai._activity_repo,
+            "find_by_user_id",
+            return_value=[],
+        )
+        dashboard_service_with_ai._ai_service.get_recommendations.side_effect = (
+            Exception("AI down")
+        )
+        result = dashboard_service_with_ai.get_insights("user-123")
+        assert result["ai_tip"] is None
+        assert result["ai_insight"] is None
+        assert "summary" in result
+
+    def test_get_insights_has_expected_method(self, dashboard_service):
+        assert hasattr(dashboard_service, "get_insights")
+
     def test_get_trends_handles_empty_entries(self, dashboard_service, mocker):
         mocker.patch.object(
             dashboard_service._carbon_history_repo,
