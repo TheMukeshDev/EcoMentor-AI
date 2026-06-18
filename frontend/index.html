@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -31,75 +30,147 @@
   <link rel="stylesheet" href="/css/premium-home.css">
 </head>
 
-<body>
+<body class="layout-home">
   <a class="skip-link" href="#main-content">Skip to main content</a>
 
-  <header id="app-header" role="banner">
-    <nav class="nav-container" aria-label="Main navigation">
+  <!-- HOMEPAGE NAVBAR (Premium SaaS Style) -->
+  <header id="home-header" class="home-header auth-hidden-home" role="banner">
+    <nav class="home-nav-container" aria-label="Main navigation">
       <a href="#/" class="nav-logo" aria-label="EcoMentor AI home">
         <img src="/favicon.svg" class="logo-icon" alt="" width="32" height="32" aria-hidden="true">
         <span class="logo-text">EcoMentor</span>
       </a>
-      <ul class="nav-links" id="nav-links" role="list">
-        <li><a href="#/" data-nav id="nav-home">Home</a></li>
-        <li class="auth-hidden"><a href="#/dashboard" data-nav id="nav-dashboard">Dashboard</a></li>
-        <li class="auth-hidden"><a href="#/log" data-nav id="nav-log">Log Activity</a></li>
-        <li class="auth-hidden"><a href="#/coach" data-nav id="nav-coach">AI Coach</a></li>
-        <li class="auth-hidden"><a href="#/leaderboard" data-nav id="nav-leaderboard">Leaderboard</a></li>
-        <li class="auth-hidden"><a href="#/achievements" data-nav id="nav-achievements">Achievements</a></li>
-        <li class="auth-hidden"><a href="#/report" data-nav id="nav-report">Report</a></li>
-        <li class="auth-hidden"><a href="#/profile" data-nav id="nav-profile">Profile</a></li>
-        <li class="auth-hidden"><a href="#/settings" data-nav id="nav-settings">Settings</a></li>
-        <li class="auth-visible"><a href="#/login" data-nav id="nav-login">Login</a></li>
-        <li class="auth-visible"><a href="#/signup" data-nav id="nav-signup">Sign Up</a></li>
-        <li class="auth-hidden"><a href="#/" data-nav id="logout-btn">Logout</a></li>
+      <ul class="home-nav-links desktop-only" role="list">
+        <li><a href="#/" data-nav>Home</a></li>
+        <li><a href="#/features" data-nav>Features</a></li>
+        <li><a href="#/rewards" data-nav>Rewards</a></li>
+        <li><a href="#/achievements" data-nav>Challenges</a></li>
+        <li><a href="#/community" data-nav>Community</a></li>
+        <li><a href="#/about" data-nav>About</a></li>
       </ul>
-      <div class="nav-controls">
-        <button class="theme-toggle" aria-label="Toggle dark mode" id="theme-toggle" role="switch"
-          aria-checked="false">&#9790;</button>
-        <button class="nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="nav-links"
-          id="nav-toggle">
-          <span class="hamburger" aria-hidden="true"></span>
-        </button>
+      <div class="home-nav-actions desktop-only">
+        <a href="#/login" class="nav-btn-login auth-visible" data-nav>Login</a>
+        <a href="#/signup" class="btn btn-primary nav-btn-signup auth-visible" data-nav>Get Started</a>
+        <a href="#/dashboard" class="btn btn-primary nav-btn-signup auth-hidden" data-nav>Go to Dashboard</a>
       </div>
+      <button class="hamburger-btn mobile-only" aria-label="Open menu" aria-expanded="false" id="mobile-menu-open">
+        &#9776;
+      </button>
     </nav>
   </header>
 
-  <main id="main-content" role="main">
-    <div id="app" aria-live="polite" aria-atomic="false"></div>
-  </main>
+  <!-- MOBILE SLIDE-OVER DRAWER (Homepage) -->
+  <div id="mobile-drawer" class="mobile-drawer" aria-hidden="true">
+    <div class="drawer-backdrop" id="drawer-backdrop"></div>
+    <div class="drawer-content">
+      <div class="drawer-header">
+        <span class="logo-text" style="font-weight: 800; font-size: 1.4rem; color: var(--color-primary);">EcoMentor</span>
+        <button class="drawer-close" id="mobile-menu-close" aria-label="Close menu">&times;</button>
+      </div>
+      <ul class="drawer-links" role="list">
+        <li><a href="#/" data-nav>Home</a></li>
+        <li><a href="#/features" data-nav>Features</a></li>
+        <li><a href="#/achievements" data-nav>Challenges</a></li>
+        <li><a href="#/rewards" data-nav>Rewards</a></li>
+        <li><a href="#/leaderboard" data-nav>Leaderboard</a></li>
+        <li><a href="#/community" data-nav>Community</a></li>
+        <li><a href="#/about" data-nav>About</a></li>
+        <li><a href="#/contact" data-nav>Contact</a></li>
+      </ul>
+      <div class="drawer-footer">
+        <button class="theme-toggle btn btn-outline" id="theme-toggle-home" style="width:100%; margin-bottom:12px; display:flex; justify-content:center; align-items:center; gap:8px;">
+          <span>&#9790;</span> Toggle Theme
+        </button>
+        <div class="auth-visible">
+          <a href="#/login" class="btn btn-outline" style="display:block; text-align:center; margin-bottom:12px;" data-nav>Login</a>
+          <a href="#/signup" class="btn btn-primary" style="display:block; text-align:center;" data-nav>Sign Up</a>
+        </div>
+        <div class="auth-hidden">
+          <a href="#/dashboard" class="btn btn-primary" style="display:block; text-align:center; margin-bottom:12px;" data-nav>Dashboard</a>
+          <button id="mobile-logout-btn" class="btn btn-outline" style="width:100%;">Logout</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD LAYOUT (Professional SaaS Style) -->
+  <div class="app-wrapper">
+    <aside id="dashboard-sidebar" class="dashboard-sidebar" aria-label="Sidebar">
+      <div class="sidebar-header">
+        <a href="#/" class="nav-logo sidebar-logo">
+          <img src="/favicon.svg" class="logo-icon" alt="">
+          <span class="logo-text sidebar-text">EcoMentor</span>
+        </a>
+        <button class="sidebar-collapse-btn" id="sidebar-collapse-btn" aria-label="Toggle sidebar">
+          <span class="collapse-icon">&laquo;</span>
+        </button>
+      </div>
+      <nav class="sidebar-nav">
+        <ul role="list">
+          <li><a href="#/dashboard" data-nav class="sidebar-link" title="Dashboard"><span class="sidebar-icon">&#128202;</span><span class="sidebar-text">Dashboard</span></a></li>
+          <li><a href="#/log" data-nav class="sidebar-link" title="Track Activity"><span class="sidebar-icon">&#128221;</span><span class="sidebar-text">Track Activity</span></a></li>
+          <li><a href="#/coach" data-nav class="sidebar-link" title="AI Coach"><span class="sidebar-icon">&#129309;</span><span class="sidebar-text">AI Coach</span></a></li>
+          <li><a href="#/achievements" data-nav class="sidebar-link" title="Challenges"><span class="sidebar-icon">&#127941;</span><span class="sidebar-text">Challenges</span></a></li>
+          <li><a href="#/rewards" data-nav class="sidebar-link" title="Rewards Store"><span class="sidebar-icon">&#127873;</span><span class="sidebar-text">Rewards Store</span></a></li>
+          <li><a href="#/leaderboard" data-nav class="sidebar-link" title="Leaderboard"><span class="sidebar-icon">&#127942;</span><span class="sidebar-text">Leaderboard</span></a></li>
+          <li><a href="#/report" data-nav class="sidebar-link" title="Analytics"><span class="sidebar-icon">&#128200;</span><span class="sidebar-text">Analytics</span></a></li>
+          <li><a href="#/community" data-nav class="sidebar-link" title="Community"><span class="sidebar-icon">&#128101;</span><span class="sidebar-text">Community</span></a></li>
+        </ul>
+        <ul class="sidebar-bottom-nav" style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:4px; margin-top:20px;" role="list">
+          <li><a href="#/profile" data-nav class="sidebar-link" title="Profile"><span class="sidebar-icon">&#128100;</span><span class="sidebar-text">Profile</span></a></li>
+          <li><a href="#/settings" data-nav class="sidebar-link" title="Settings"><span class="sidebar-icon">&#9881;</span><span class="sidebar-text">Settings</span></a></li>
+          <li><a href="#" id="sidebar-logout-btn" class="sidebar-link" title="Logout"><span class="sidebar-icon">&#128682;</span><span class="sidebar-text">Logout</span></a></li>
+        </ul>
+      </nav>
+    </aside>
+    
+    <div class="dashboard-drawer-overlay" id="dashboard-drawer-overlay"></div>
+
+    <div class="main-wrapper">
+      <header id="dashboard-header" class="dashboard-header">
+        <div style="display:flex; align-items:center;">
+          <button class="mobile-sidebar-toggle" id="mobile-sidebar-toggle" aria-label="Open sidebar">&#9776;</button>
+          <div class="header-search">
+            <span class="search-icon">&#128269;</span>
+            <input type="text" placeholder="Search..." aria-label="Search" class="search-input">
+          </div>
+        </div>
+        <div class="header-actions">
+          <div class="quick-action-dropdown" id="quick-action-container">
+            <button class="btn btn-primary" id="quick-action-btn" style="padding: 8px 16px; display:flex; align-items:center; gap:6px; font-weight:600;">
+              <span>+</span> <span class="desktop-only">Add Activity</span>
+            </button>
+            <div class="dropdown-menu" id="quick-action-menu">
+              <a href="#/log?type=transport" class="dropdown-item" data-nav>Log Transport</a>
+              <a href="#/log?type=energy" class="dropdown-item" data-nav>Log Energy</a>
+              <a href="#/log?type=waste" class="dropdown-item" data-nav>Log Waste</a>
+              <a href="#/log?type=water" class="dropdown-item" data-nav>Log Water</a>
+              <div class="dropdown-divider"></div>
+              <a href="#/log?type=custom" class="dropdown-item" data-nav>Add Custom Activity</a>
+            </div>
+          </div>
+          <button class="theme-toggle icon-btn" id="theme-toggle-dash" aria-label="Toggle theme">&#9790;</button>
+          <button class="icon-btn notification-btn" aria-label="Notifications">&#128276;</button>
+          <a href="#/profile" class="header-avatar" aria-label="User Profile" data-nav>
+            <img src="/favicon.svg" alt="Avatar">
+          </a>
+        </div>
+      </header>
+
+      <main id="main-content" role="main">
+        <div id="app" aria-live="polite" aria-atomic="false"></div>
+      </main>
+
+      <footer role="contentinfo">
+        <div class="footer-content">
+          <p>&copy; 2026 EcoMentor AI &mdash; Reduce your footprint, one step at a time.</p>
+        </div>
+      </footer>
+    </div>
+  </div>
 
   <!-- Toast container for notifications -->
   <div id="toast-container" aria-live="assertive" aria-atomic="true" role="status" class="toast-container"></div>
-
-  <nav class="bottom-nav" aria-label="Bottom navigation">
-    <a href="#/dashboard" class="bottom-nav-link" data-bottom-nav id="bottom-dashboard">
-      <span class="bottom-nav-icon" aria-hidden="true">&#128202;</span>
-      <span class="bottom-nav-label">Dashboard</span>
-    </a>
-    <a href="#/log" class="bottom-nav-link" data-bottom-nav id="bottom-log">
-      <span class="bottom-nav-icon" aria-hidden="true">&#128221;</span>
-      <span class="bottom-nav-label">Log</span>
-    </a>
-    <a href="#/coach" class="bottom-nav-link" data-bottom-nav id="bottom-coach">
-      <span class="bottom-nav-icon" aria-hidden="true">&#129309;</span>
-      <span class="bottom-nav-label">Coach</span>
-    </a>
-    <a href="#/leaderboard" class="bottom-nav-link" data-bottom-nav id="bottom-leaderboard">
-      <span class="bottom-nav-icon" aria-hidden="true">&#127942;</span>
-      <span class="bottom-nav-label">Leaderboard</span>
-    </a>
-    <a href="#/settings" class="bottom-nav-link" data-bottom-nav id="bottom-settings">
-      <span class="bottom-nav-icon" aria-hidden="true">&#9881;</span>
-      <span class="bottom-nav-label">Settings</span>
-    </a>
-  </nav>
-
-  <footer role="contentinfo">
-    <div class="footer-content">
-      <p>&copy; 2026 EcoMentor AI &mdash; Reduce your footprint, one step at a time.</p>
-    </div>
-  </footer>
 
   <script type="module" src="/js/main.js"></script>
   <script>
@@ -110,5 +181,4 @@
     }
   </script>
 </body>
-
 </html>

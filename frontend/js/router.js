@@ -36,12 +36,19 @@ export function navigate(hash) {
   const app = document.getElementById('app');
   const renderFn = routes[path];
 
+  // Update layout class based on route
+  const homeRoutes = ['/', '/login', '/signup'];
+  if (homeRoutes.includes(path)) {
+    document.body.className = 'layout-home';
+  } else {
+    document.body.className = 'layout-dashboard';
+  }
+
   if (_beforeRouteChange) _beforeRouteChange();
   if (renderFn) {
     app.innerHTML = '<div class="spinner" role="status"><span class="sr-only">Loading...</span></div>';
     Promise.resolve(renderFn()).then(() => {
       updateNav();
-      updateBottomNav();
       document.querySelectorAll('[data-nav]').forEach(l => {
         l.removeAttribute('aria-current');
         if (l.getAttribute('href') === hash || (hash === '' && l.getAttribute('href') === '#/')) {
@@ -74,19 +81,12 @@ export function updateNav() {
   document.querySelectorAll('.auth-visible').forEach(el => el.style.display = authenticated ? 'none' : '');
 }
 
-export function updateBottomNav() {
-  const authenticated = getState('auth_initialized') === true ? getState('is_authenticated') === true : !!localStorage.getItem('id_token');
-  document.querySelectorAll('.bottom-nav-link').forEach(el => {
-    const href = el.getAttribute('href');
-    if (href === '#/dashboard' || href === '#/log' || href === '#/coach' || href === '#/leaderboard' || href === '#/settings') {
-      el.style.display = authenticated ? '' : 'none';
-    }
-  });
-}
-
 function closeNav() {
-  const nav = document.getElementById('nav-links');
-  const toggle = document.getElementById('nav-toggle');
-  if (nav) nav.classList.remove('open');
-  if (toggle) toggle.setAttribute('aria-expanded', 'false');
+  const mobileDrawer = document.getElementById('mobile-drawer');
+  if (mobileDrawer) mobileDrawer.classList.remove('open');
+  
+  const dashboardSidebar = document.getElementById('dashboard-sidebar');
+  if (dashboardSidebar && window.innerWidth <= 768) {
+    dashboardSidebar.classList.remove('mobile-open');
+  }
 }
