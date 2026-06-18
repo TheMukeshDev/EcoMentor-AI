@@ -1,7 +1,8 @@
-const CACHE = 'ecomentor-v1';
+const CACHE = 'ecomentor-v2';
 const ASSETS = [
   '/',
   '/index.html',
+  '/assets/dashboard.css',
 ];
 
 self.addEventListener('install', event => {

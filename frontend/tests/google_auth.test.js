@@ -24,10 +24,6 @@ beforeAll(() => {
   window.scrollTo = vi.fn();
 });
 
-function clearStorage() {
-  localStorage.clear();
-}
-
 describe('Google Auth Integration', () => {
   beforeEach(() => {
     document.body.innerHTML = '<div id="app"></div><div id="main-content"></div><div id="nav-links"></div>';

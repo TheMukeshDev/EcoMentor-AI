@@ -18,6 +18,8 @@ export function navigate(hash) {
 
   const app = document.getElementById('app');
   const renderFn = routes[path];
+
+  try { window.unsubscribeDashboard?.(); } catch {} /**/
   if (renderFn) {
     app.innerHTML = '<div class="spinner" role="status"><span class="sr-only">Loading...</span></div>';
     Promise.resolve(renderFn()).then(() => {

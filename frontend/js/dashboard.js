@@ -483,7 +483,13 @@ function renderComparisonChart(history) {
   });
 }
 
-subscribe('user_profile', () => {
+let _unsubProfile;
+function unsubscribeDashboard() {
+  if (_unsubProfile) { _unsubProfile(); _unsubProfile = null; }
+}
+window.unsubscribeDashboard = unsubscribeDashboard;
+
+_unsubProfile = subscribe('user_profile', () => {
   const hash = window.location.hash;
   if (!hash || hash === '#/' || hash === '#/dashboard') renderDashboard();
 });

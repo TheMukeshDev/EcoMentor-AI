@@ -8,7 +8,9 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "deploy:gen-config": "node scripts/generate-firebase-json.js",
+    "deploy": "npm run build && node scripts/generate-firebase-json.js && cd .. && npx firebase-tools deploy --only hosting"
   },
   "devDependencies": {
     "jsdom": "^26.0.0",

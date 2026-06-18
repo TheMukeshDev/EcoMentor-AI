@@ -68,6 +68,9 @@ jobs:
           npm ci
           npm run build
 
+      - name: Generate firebase.json from env vars
+        run: npm run deploy:gen-config
+
       - name: Deploy to Firebase Hosting
         run: |
           npx firebase-tools deploy \

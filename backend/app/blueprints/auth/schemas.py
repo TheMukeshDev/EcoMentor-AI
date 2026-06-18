@@ -14,3 +14,12 @@ class LoginRequest(BaseModel):
 
 class UpdateProfileRequest(BaseModel):
     name: str | None = Field(None, max_length=100)
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: str = Field(..., min_length=5, max_length=120)
+
+
+class ConfirmResetRequest(BaseModel):
+    oob_code: str = Field(..., min_length=1)
+    new_password: str = Field(..., min_length=6, max_length=128)
