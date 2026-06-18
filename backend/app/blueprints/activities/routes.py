@@ -1,6 +1,7 @@
 from flask import Blueprint, request
 
 from app.middleware.auth_middleware import require_auth
+from app.middleware.csrf import csrf_protect
 from app.utils.responses import success_response, error_response
 from app.utils.validators import validate_body
 from app.blueprints.activities.schemas import LogActivityRequest
@@ -30,6 +31,7 @@ def list_activities():
 
 @activities_bp.route("", methods=["POST"])
 @require_auth
+@csrf_protect
 @validate_body(LogActivityRequest)
 def log_activity():
     from flask import g
@@ -53,6 +55,7 @@ def get_activity(activity_id):
 
 @activities_bp.route("/<activity_id>", methods=["DELETE"])
 @require_auth
+@csrf_protect
 def delete_activity(activity_id):
     _service.delete_activity(activity_id)
     return success_response({"message": "Activity deleted"})

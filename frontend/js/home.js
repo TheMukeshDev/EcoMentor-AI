@@ -1,4 +1,4 @@
-import { api, registerRoute } from './main.js';
+import { api, registerRoute, htmlEscape } from './main.js';
 
 const FEATURES = [
   { icon: '\uD83D\uDCC8', title: 'Track Footprint', desc: 'Log daily activities and see your carbon impact in real time.' },
@@ -32,8 +32,8 @@ async function renderHome() {
             ${entries.map((e, i) => `
               <div class="lb-row">
                 <span class="lb-rank ${i < 3 ? `top-${i + 1}` : ''}">${MEDALS[i] || (i + 1)}</span>
-                <span style="flex:1;font-weight:600">${e.name || 'Anonymous'}</span>
-                <span class="lb-level" style="background:var(--color-primary-bg);color:var(--color-primary);padding:2px 10px;border-radius:12px;font-size:0.8rem">${e.level || 'Beginner'}</span>
+                <span style="flex:1;font-weight:600">${htmlEscape(e.name) || 'Anonymous'}</span>
+                <span class="lb-level" style="background:var(--color-primary-bg);color:var(--color-primary);padding:2px 10px;border-radius:12px;font-size:0.8rem">${htmlEscape(e.level) || 'Beginner'}</span>
                 <span style="font-weight:700">${e.points || 0} pts</span>
               </div>
             `).join('')}

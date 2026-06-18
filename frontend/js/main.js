@@ -17,6 +17,13 @@ export async function api(path, options = {}) {
   }
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
   if (!res.ok) {
+    if (res.status === 401) {
+      localStorage.removeItem('id_token');
+      csrfToken = '';
+      updateNav();
+      navigate('#/login');
+      throw new Error('Session expired. Please log in again.');
+    }
     const body = await res.json().catch(() => ({}));
     throw new Error(body.message || `Request failed (${res.status})`);
   }
@@ -129,11 +136,13 @@ window.addEventListener('load', () => {
   });
   document.getElementById('logout-btn')?.addEventListener('click', () => {
     localStorage.removeItem('id_token');
+    csrfToken = '';
     updateNav();
     navigate('');
   });
   updateNav();
+  fetchCsrfToken();
   navigate(window.location.hash);
 });
 
-export { registerRoute, navigate };
+export { registerRoute, navigate, htmlEscape, fetchCsrfToken, initTheme };

@@ -1,4 +1,4 @@
-import { api, toast, registerRoute, navigate } from './main.js';
+import { api, toast, registerRoute, navigate, fetchCsrfToken } from './main.js';
 
 function renderLogin() {
   const app = document.getElementById('app');
@@ -52,6 +52,7 @@ function renderLogin() {
         body: JSON.stringify({ email, password }),
       });
       localStorage.setItem('id_token', data.id_token);
+      await fetchCsrfToken();
       toast('Login successful!', 'success');
       navigate('#/dashboard');
     } catch (err) {
@@ -124,6 +125,7 @@ function renderSignup() {
         body: JSON.stringify({ email, password, name }),
       });
       localStorage.setItem('id_token', data.id_token);
+      await fetchCsrfToken();
       toast('Account created!', 'success');
       navigate('#/dashboard');
     } catch (err) {

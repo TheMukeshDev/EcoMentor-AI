@@ -1,4 +1,4 @@
-from flask import Blueprint
+from flask import Blueprint, request
 
 from app.middleware.auth_middleware import require_auth
 from app.utils.responses import success_response, error_response
@@ -18,7 +18,8 @@ _service = LeaderboardService(_user_repo, _footprint_repo)
 @require_auth
 def get_global_leaderboard():
     try:
-        data = _service.get_global_leaderboard()
+        limit = request.args.get("limit", 20, type=int)
+        data = _service.get_global_leaderboard(limit=limit)
         return success_response(data)
     except Exception as e:
         return error_response(str(e), 400)

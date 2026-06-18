@@ -1,4 +1,4 @@
-import { api, toast, registerRoute } from './main.js';
+import { api, toast, registerRoute, htmlEscape } from './main.js';
 
 async function renderDashboard() {
   const app = document.getElementById('app');
@@ -20,7 +20,7 @@ async function renderDashboard() {
     app.innerHTML = `
       <div class="dashboard-header">
         <h1>Dashboard</h1>
-        ${personality ? `<span class="personality-badge">${personality.personality || 'Eco Guardian'}</span>` : ''}
+        ${personality ? `<span class="personality-badge">${htmlEscape(personality.personality) || 'Eco Guardian'}</span>` : ''}
       </div>
 
       <div class="card-grid">
@@ -50,7 +50,7 @@ async function renderDashboard() {
         <div class="mission-card">
           <div class="mission-text">
             <h3>Today's Mission</h3>
-            <p>${mission.challenge || ''}</p>
+            <p>${htmlEscape(mission.challenge) || ''}</p>
           </div>
           <span class="mission-reward">+${mission.reward || 0} pts</span>
         </div>
@@ -72,11 +72,11 @@ async function renderDashboard() {
         <div class="card-grid">
           <div class="card">
             <div class="card-title">Strengths</div>
-            <p style="color:var(--color-text-secondary);font-size:0.9rem">${personality?.strength || 'Start logging to discover your strengths'}</p>
+            <p style="color:var(--color-text-secondary);font-size:0.9rem">${htmlEscape(personality?.strength) || 'Start logging to discover your strengths'}</p>
           </div>
           <div class="card">
             <div class="card-title">Focus Area</div>
-            <p style="color:var(--color-text-secondary);font-size:0.9rem">${personality?.weakness || 'Log more activities for personalized insights'}</p>
+            <p style="color:var(--color-text-secondary);font-size:0.9rem">${htmlEscape(personality?.weakness) || 'Log more activities for personalized insights'}</p>
           </div>
         </div>
       </div>
@@ -97,7 +97,7 @@ async function renderDashboard() {
     app.innerHTML = `
       <div class="error-state">
         <span class="empty-icon">&#9888;</span>
-        <p>${err.message}</p>
+        <p>${htmlEscape(err.message)}</p>
         <button class="btn btn-primary" onclick="window.location.hash='#/dashboard'">Retry</button>
       </div>
     `;

@@ -35,38 +35,3 @@ def validate_body(schema_cls):
         return wrapper
 
     return decorator
-
-
-def validate_query(schema_cls):
-    def decorator(f):
-        @wraps(f)
-        def wrapper(*args, **kwargs):
-            data = dict(request.args)
-            try:
-                validated = schema_cls.model_validate(data)
-                request.validated_query = validated
-            except PydanticValidationError as exc:
-                errors = [
-                    {
-                        "field": ".".join(str(p) for p in err["loc"]),
-                        "message": err["msg"],
-                    }
-                    for err in exc.errors()
-                ]
-                return jsonify(
-                    {
-                        "status": "error",
-                        "message": "Invalid query parameters",
-                        "errors": errors,
-                    }
-                ), 422
-            return f(*args, **kwargs)
-
-        return wrapper
-
-    return decorator
-
-
-class PaginationParams(BaseModel):
-    page: int = 1
-    per_page: int = 20

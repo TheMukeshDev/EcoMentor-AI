@@ -44,8 +44,12 @@ function renderWizard() {
   document.querySelectorAll('.option-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const group = btn.closest('.option-group');
-      group.querySelectorAll('.option-btn').forEach(b => b.classList.remove('selected'));
+      group.querySelectorAll('.option-btn').forEach(b => {
+        b.classList.remove('selected');
+        b.setAttribute('aria-checked', 'false');
+      });
       btn.classList.add('selected');
+      btn.setAttribute('aria-checked', 'true');
       const input = group.querySelector('input');
       if (input) {
         input.value = btn.dataset.value;
@@ -59,7 +63,7 @@ function getStepContent(step) {
   switch (step.id) {
     case 'transport':
       return `
-        <h2>How did you travel today?</h2>
+        <h2 tabindex="-1">How did you travel today?</h2>
         <div class="form-group">
           <label for="transport-mode">Mode of transport</label>
           <div class="option-group" role="radiogroup" aria-label="Transport mode">
@@ -70,8 +74,8 @@ function getStepContent(step) {
               { value: 'metro', label: 'Metro', icon: '\uD83D\uDE87' },
               { value: 'car', label: 'Car', icon: '\uD83D\uDE97' },
               { value: 'plane', label: 'Plane', icon: '\u2708\uFE0F' },
-            ].map(o => `
-              <button type="button" class="option-btn" data-value="${o.value}" role="radio" aria-checked="false">
+            ].map((o, i) => `
+              <button type="button" class="option-btn" data-value="${o.value}" role="radio" aria-checked="${i === 0}">
                 ${o.icon} ${o.label}
               </button>
             `).join('')}
@@ -87,7 +91,7 @@ function getStepContent(step) {
       `;
     case 'electricity':
       return `
-        <h2>AC usage today?</h2>
+        <h2 tabindex="-1">AC usage today?</h2>
         <div class="form-group">
           <label for="ac-usage">Hours used</label>
           <div class="option-group" role="radiogroup" aria-label="AC usage">
@@ -96,8 +100,8 @@ function getStepContent(step) {
               { value: '1-2', label: '1-2 hours', icon: '\uD83D\uDD25' },
               { value: '3-5', label: '3-5 hours', icon: '\uD83D\uDD25\uD83D\uDD25' },
               { value: '6+', label: '6+ hours', icon: '\uD83E\uDDCA' },
-            ].map(o => `
-              <button type="button" class="option-btn" data-value="${o.value}" role="radio" aria-checked="false">
+            ].map((o, i) => `
+              <button type="button" class="option-btn" data-value="${o.value}" role="radio" aria-checked="${i === 0}">
                 ${o.icon} ${o.label}
               </button>
             `).join('')}
@@ -107,7 +111,7 @@ function getStepContent(step) {
       `;
     case 'food':
       return `
-        <h2>What did you eat today?</h2>
+        <h2 tabindex="-1">What did you eat today?</h2>
         <div class="form-group">
           <label for="food-type">Diet type</label>
           <div class="option-group" role="radiogroup" aria-label="Diet type">
@@ -116,7 +120,7 @@ function getStepContent(step) {
               { value: 'vegetarian', label: 'Vegetarian', icon: '\uD83E\uDD55' },
               { value: 'non_vegetarian', label: 'Non-veg', icon: '\uD83C\uDF54' },
             ].map(o => `
-              <button type="button" class="option-btn" data-value="${o.value}" role="radio" aria-checked="false">
+              <button type="button" class="option-btn" data-value="${o.value}" role="radio" aria-checked="${o.value === 'vegetarian'}">
                 ${o.icon} ${o.label}
               </button>
             `).join('')}
@@ -126,7 +130,7 @@ function getStepContent(step) {
       `;
     case 'waste':
       return `
-        <h2>Plastic waste today?</h2>
+        <h2 tabindex="-1">Plastic waste today?</h2>
         <div class="form-group">
           <label for="plastic-waste">Plastic waste (kg)</label>
           <input type="number" id="plastic-waste" min="0" step="0.1" value="0"
@@ -187,7 +191,10 @@ function validateStep(step) {
 
 function showStep(index) {
   document.querySelectorAll('.wizard-step').forEach(el => el.classList.remove('active'));
-  document.querySelector(`.wizard-step[data-step="${index}"]`).classList.add('active');
+  const stepEl = document.querySelector(`.wizard-step[data-step="${index}"]`);
+  stepEl.classList.add('active');
+  const heading = stepEl.querySelector('h2');
+  if (heading) heading.focus();
 
   document.querySelectorAll('.progress-step').forEach((el, i) => {
     el.classList.toggle('active', i <= index);

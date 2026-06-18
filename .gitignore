@@ -56,8 +56,14 @@ ui-debug.log
 *.pem
 *.key
 
+# ── Frontend ─────────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+
 # ── OS ──────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 desktop.ini
 *.log
+nul

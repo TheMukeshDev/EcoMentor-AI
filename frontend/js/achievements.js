@@ -1,4 +1,4 @@
-import { api, registerRoute } from './main.js';
+import { api, registerRoute, htmlEscape } from './main.js';
 
 const ECO_TREE_LEVELS = [
   { name: 'Seed', icon: '\uD83C\uDF31', minPoints: 0 },
@@ -54,8 +54,8 @@ async function renderAchievements() {
           ${BADGES.map(b => {
             const unlocked = points >= b.minPoints;
             return `
-              <div class="badge-card ${unlocked ? 'unlocked' : 'locked'}" role="img" aria-label="${b.name} badge ${unlocked ? 'unlocked' : 'locked'}">
-                <span class="badge-icon">${b.icon}</span>
+              <div class="badge-card ${unlocked ? 'unlocked' : 'locked'}" aria-label="${b.name} badge ${unlocked ? 'unlocked' : 'locked'}">
+                <span class="badge-icon" aria-hidden="true">${b.icon}</span>
                 <h3>${b.name}</h3>
                 <p>${b.minPoints > 0 ? `${b.minPoints} points` : 'Starting badge'}</p>
               </div>
@@ -68,7 +68,7 @@ async function renderAchievements() {
     app.innerHTML = `
       <div class="error-state">
         <span class="empty-icon">&#9888;</span>
-        <p>${err.message}</p>
+        <p>${htmlEscape(err.message)}</p>
         <button class="btn btn-primary" onclick="window.location.hash='#/achievements'">Retry</button>
       </div>
     `;

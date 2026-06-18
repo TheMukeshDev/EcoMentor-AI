@@ -1,6 +1,7 @@
 from flask import Blueprint, request
 
 from app.middleware.auth_middleware import require_auth
+from app.middleware.csrf import csrf_protect
 from app.utils.responses import success_response, error_response
 from app.utils.validators import validate_body
 from app.blueprints.auth.schemas import (
@@ -20,6 +21,7 @@ _service = AuthService(_user_repo)
 
 
 @auth_bp.route("/register", methods=["POST"])
+@csrf_protect
 @validate_body(RegisterRequest)
 def register():
     data = request.validated_body
@@ -33,6 +35,7 @@ def register():
 
 
 @auth_bp.route("/login", methods=["POST"])
+@csrf_protect
 @validate_body(LoginRequest)
 def login():
     data = request.validated_body
@@ -59,6 +62,7 @@ def get_profile():
 
 @auth_bp.route("/profile", methods=["PUT"])
 @require_auth
+@csrf_protect
 @validate_body(UpdateProfileRequest)
 def update_profile():
     from flask import g

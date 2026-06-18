@@ -1,4 +1,4 @@
-import { api, registerRoute } from './main.js';
+import { api, registerRoute, htmlEscape } from './main.js';
 
 async function renderLeaderboard() {
   const app = document.getElementById('app');
@@ -39,8 +39,8 @@ async function renderLeaderboard() {
                 ${entries.map((e, i) => `
                   <tr>
                     <td class="lb-rank-col"><span class="lb-rank ${i < 3 ? `top-${i + 1}` : ''}">${i + 1}</span></td>
-                    <td><strong>${e.name || e.uid?.slice(0, 8) || 'Anonymous'}</strong></td>
-                    <td><span class="lb-level" style="background:${LEVEL_COLORS[e.level] || '#94a3b8'}20;color:${LEVEL_COLORS[e.level] || '#94a3b8'}">${e.level || 'Beginner'}</span></td>
+                    <td><strong>${htmlEscape(e.name || e.uid?.slice(0, 8)) || 'Anonymous'}</strong></td>
+                    <td><span class="lb-level" style="background:${LEVEL_COLORS[e.level] || '#94a3b8'}20;color:${LEVEL_COLORS[e.level] || '#94a3b8'}">${htmlEscape(e.level) || 'Beginner'}</span></td>
                     <td><strong>${e.points || 0}</strong></td>
                   </tr>
                 `).join('')}
@@ -54,7 +54,7 @@ async function renderLeaderboard() {
     app.innerHTML = `
       <div class="error-state">
         <span class="empty-icon">&#9888;</span>
-        <p>${err.message}</p>
+        <p>${htmlEscape(err.message)}</p>
         <button class="btn btn-primary" onclick="window.location.hash='#/leaderboard'">Retry</button>
       </div>
     `;
