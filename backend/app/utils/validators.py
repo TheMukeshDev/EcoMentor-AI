@@ -2,7 +2,7 @@ import logging
 from functools import wraps
 
 from flask import request, jsonify
-from pydantic import BaseModel, ValidationError as PydanticValidationError
+from pydantic import ValidationError as PydanticValidationError
 
 logger = logging.getLogger(__name__)
 

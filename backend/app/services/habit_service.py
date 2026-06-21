@@ -11,7 +11,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from app.schemas.ai_schemas import HabitCard, HabitResponse
+from app.schemas.ai_schemas import HabitResponse
 
 logger = logging.getLogger(__name__)
 

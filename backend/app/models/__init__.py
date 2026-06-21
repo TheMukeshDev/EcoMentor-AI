@@ -6,3 +6,14 @@ from app.models.challenge import Challenge
 from app.models.report import Report
 from app.models.leaderboard_entry import LeaderboardEntry
 from app.models.ai_report import AIReport
+
+__all__ = [
+    "User",
+    "Activity",
+    "Footprint",
+    "Recommendation",
+    "Challenge",
+    "Report",
+    "LeaderboardEntry",
+    "AIReport",
+]

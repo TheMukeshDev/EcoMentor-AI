@@ -11,3 +11,19 @@ from app.services.report_service import ReportService
 from app.services.simulator_service import SimulatorService
 from app.services.habit_service import HabitService
 from app.services.forecast_service import ForecastService
+
+__all__ = [
+    "AuthService",
+    "DashboardService",
+    "ActivityService",
+    "AIService",
+    "LeaderboardService",
+    "CarbonService",
+    "CacheService",
+    "PromptService",
+    "CoachService",
+    "ReportService",
+    "SimulatorService",
+    "HabitService",
+    "ForecastService",
+]

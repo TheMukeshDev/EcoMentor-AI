@@ -5,8 +5,9 @@ class UserRepository(BaseRepository):
     def __init__(self, db):
         super().__init__(db, "users")
 
-    def find_by_email(self, email):
-        results = self.query(filters=[("email", "==", email)])
+    def find_by_email(self, email: str) -> dict | None:
+        """Find user by email."""
+        results = self.query(filters=[("email", "==", email)], limit=1)
         return results[0] if results else None
 
     def get_batch(self, doc_ids):

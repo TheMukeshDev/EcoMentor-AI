@@ -17,7 +17,7 @@ def test_log_activity_success(client, mocker):
         "transport": "car",
         "distance": 10.0,
         "food_type": "vegan",
-        "ac_usage": "low",
+        "ac_usage": "none",
         "plastic_waste": 1.0
     }, headers=get_headers())
     assert resp.status_code == 201
@@ -31,7 +31,7 @@ def test_log_activity_error(client, mocker):
         "transport": "car",
         "distance": 10.0,
         "food_type": "vegan",
-        "ac_usage": "low",
+        "ac_usage": "none",
         "plastic_waste": 1.0
     }, headers=get_headers())
     assert resp.status_code == 400

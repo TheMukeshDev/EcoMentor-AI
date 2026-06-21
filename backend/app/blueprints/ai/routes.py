@@ -18,14 +18,14 @@ from app.repositories.activity_repository import ActivityRepository
 from app.repositories.carbon_history_repository import CarbonHistoryRepository
 from app.repositories.user_repository import UserRepository
 from app.services.ai_service import AIService
-from app.services.prompt_service import PromptService, sanitize_input
+from app.services.prompt_service import sanitize_input
 from app.blueprints.ai.schemas import (
     RecommendationsRequest,
     ChatRequest,
     WhatsIfRequest,
     FeedbackRequest,
 )
-from app.schemas.ai_schemas import SimulatorRequest, ForecastRequest
+from app.schemas.ai_schemas import SimulatorRequest
 from app.services.coach_service import CoachService
 from app.services.report_service import ReportService
 from app.services.simulator_service import SimulatorService
@@ -333,7 +333,7 @@ def chat_stream():
     if not api_key:
         return error_response("AI service not configured", 503)
 
-    context = _build_user_context(g.user_id)
+    _build_user_context(g.user_id)
     history = _ai_service.get_conversation_history(g.user_id)
 
     contents = []

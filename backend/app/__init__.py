@@ -6,6 +6,7 @@ blueprints, middleware, and error handlers.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import sys
@@ -20,6 +21,33 @@ from app.middleware.errors import register_error_handlers
 from app.utils.secrets import validate_required_secrets
 from app.middleware.csrf import csrf_token_endpoint
 from app.utils.rate_limiter import rate_limiter
+
+
+class JSONLogFormatter(logging.Formatter):
+    """Structured JSON log formatter for production observability.
+
+    Outputs each log record as a single-line JSON object with
+    timestamp, level, logger name, and message fields.
+    """
+
+    def format(self, record: logging.LogRecord) -> str:
+        """Format a log record as a JSON string.
+
+        Args:
+            record: The log record to format.
+
+        Returns:
+            A JSON-encoded string representing the log entry.
+        """
+        log_entry = {
+            "timestamp": self.formatTime(record, self.datefmt),
+            "level": record.levelname,
+            "name": record.name,
+            "message": record.getMessage(),
+        }
+        if record.exc_info and record.exc_info[1]:
+            log_entry["exception"] = self.formatException(record.exc_info)
+        return json.dumps(log_entry)
 
 
 def create_app(config_name: str | None = None) -> Flask:
@@ -51,7 +79,7 @@ def create_app(config_name: str | None = None) -> Flask:
 
 
 def _setup_logging(app: Flask) -> None:
-    """Configure structured logging for the application.
+    """Configure structured JSON logging for the application.
 
     Args:
         app: The Flask application instance.
@@ -59,9 +87,7 @@ def _setup_logging(app: Flask) -> None:
     handler = logging.StreamHandler(sys.stdout)
     level = logging.DEBUG if app.debug else logging.INFO
     handler.setLevel(level)
-    handler.setFormatter(
-        logging.Formatter("[%(asctime)s] %(levelname)s %(name)s: %(message)s")
-    )
+    handler.setFormatter(JSONLogFormatter())
     app.logger.addHandler(handler)
     app.logger.setLevel(level)
 
@@ -227,6 +253,6 @@ def _register_additional_routes(app: Flask) -> None:
             Dict with API status.
         """
         return {
-            "status": "online", 
-            "message": "EcoMentor AI Backend API is running. Please access the frontend at http://localhost:5173"
+            "status": "online",
+            "message": "EcoMentor AI Backend API is running.",
         }

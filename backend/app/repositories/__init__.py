@@ -6,3 +6,14 @@ from app.repositories.challenge_repository import ChallengeRepository
 from app.repositories.report_repository import ReportRepository
 from app.repositories.leaderboard_repository import LeaderboardRepository
 from app.repositories.ai_report_repository import AIReportRepository
+
+__all__ = [
+    "UserRepository",
+    "ActivityRepository",
+    "FootprintRepository",
+    "RecommendationRepository",
+    "ChallengeRepository",
+    "ReportRepository",
+    "LeaderboardRepository",
+    "AIReportRepository",
+]

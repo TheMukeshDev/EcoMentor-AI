@@ -10,10 +10,21 @@ export function setAuthHandlers(handlers) {
   if (handlers.updateNav) updateNavFn = handlers.updateNav;
 }
 
+/**
+ * Makes an authenticated request to the API.
+ * @param {string} path - The API endpoint path.
+ * @param {RequestInit} [options={}] - Fetch options.
+ * @returns {Promise<any>} The parsed JSON response.
+ * @throws {Error} If the request fails or is unauthorized.
+ */
 export async function api(path, options = {}) {
-  const token = await getCurrentToken() || localStorage.getItem('id_token');
+  const token = await getCurrentToken();
   const headers = { 'Content-Type': 'application/json', ...options.headers };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  } else if (!path.includes('/public') && !path.includes('/auth')) {
+    throw new Error('Authentication required');
+  }
   if (csrfToken && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(options.method || '')) {
     headers['X-CSRF-Token'] = csrfToken;
   }
@@ -43,6 +54,12 @@ export function clearCsrfToken() {
   csrfToken = '';
 }
 
+/**
+ * Fetches data from the API and caches it in sessionStorage.
+ * @param {string} path - The API endpoint path.
+ * @param {number} [ttlMs=30000] - Time to live in milliseconds.
+ * @returns {Promise<any>} The cached or newly fetched data.
+ */
 export async function apiGetCached(path, ttlMs = 30000) {
   const cacheKey = `api_cache_${path}`;
   const cached = sessionStorage.getItem(cacheKey);
@@ -52,7 +69,10 @@ export async function apiGetCached(path, ttlMs = 30000) {
       if (Date.now() - timestamp < ttlMs) {
         return data;
       }
-    } catch {}
+    } catch (error) {
+      console.warn(`Cache corrupted for ${path}, clearing...`, error);
+      sessionStorage.removeItem(cacheKey);
+    }
   }
   const result = await api(path);
   sessionStorage.setItem(cacheKey, JSON.stringify({ data: result, timestamp: Date.now() }));

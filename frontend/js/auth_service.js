@@ -1,3 +1,12 @@
+/**
+ * Firebase authentication service.
+ *
+ * Manages user sign-in state, token lifecycle, and profile
+ * synchronization with the backend API.
+ *
+ * @module auth_service
+ */
+
 import {
   auth,
   googleProvider,
@@ -9,32 +18,80 @@ import {
 } from 'firebase/auth';
 import { getState, setState } from './store.js';
 
+/** @type {Function|null} */
 let onAuthChangeCallback = null;
+
+/** @type {Function|null} */
 let onAuthErrorCallback = null;
 
-export function onAuthStateChange(cb) {
-  onAuthChangeCallback = cb;
+/**
+ * Register a callback for authentication state changes.
+ * @param {Function} callback - Called with (user, profile) on auth change.
+ */
+export function onAuthStateChange(callback) {
+  onAuthChangeCallback = callback;
 }
 
-export function onAuthError(cb) {
-  onAuthErrorCallback = cb;
+/**
+ * Register a callback for authentication errors.
+ * @param {Function} callback - Called with the error object.
+ */
+export function onAuthError(callback) {
+  onAuthErrorCallback = callback;
 }
 
+/** @type {Function} */
 let authReadyResolve;
+
+/** Promise that resolves once Firebase auth state is first determined. */
 export const authReady = new Promise(resolve => { authReadyResolve = resolve; });
+
+/** @type {boolean} */
 let authInitialized = false;
 
+/**
+ * Build a minimal fallback profile from Firebase user data.
+ * @param {Object} firebaseUser - The Firebase user object.
+ * @returns {Object} A fallback user profile.
+ */
+function buildFallbackProfile(firebaseUser) {
+  return {
+    uid: firebaseUser.uid,
+    name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+    email: firebaseUser.email,
+    photoURL: firebaseUser.photoURL,
+    level: 1,
+    streak: 0,
+    totalCarbonSaved: 0,
+    ecoScore: 50,
+    onboardingCompleted: false,
+  };
+}
+
+/**
+ * Serialize a Firebase user to a storable object.
+ * @param {import('firebase/auth').User} user - Firebase user.
+ * @returns {Object} Serializable user data.
+ */
+function serializeFirebaseUser(user) {
+  return {
+    uid: user.uid,
+    name: user.displayName || user.email?.split('@')[0] || 'User',
+    email: user.email,
+    photoURL: user.photoURL,
+  };
+}
+
+/**
+ * Initialize the Firebase onAuthStateChanged listener.
+ * Must be called once during app bootstrap.
+ */
 export function initAuthListener() {
   onAuthStateChanged(auth, async (user) => {
     if (user) {
       const token = await user.getIdToken(true);
       localStorage.setItem('id_token', token);
-      localStorage.setItem('firebase_user', JSON.stringify({
-        uid: user.uid,
-        name: user.displayName || user.email?.split('@')[0] || 'User',
-        email: user.email,
-        photoURL: user.photoURL,
-      }));
+      localStorage.setItem('firebase_user', JSON.stringify(serializeFirebaseUser(user)));
 
       if (user.emailVerified === false && user.providerData.some(p => p.providerId === 'password')) {
         setState('email_verification_needed', true);
@@ -42,7 +99,7 @@ export function initAuthListener() {
         setState('email_verification_needed', false);
       }
 
-      const profile = await syncUserProfile(token);
+      const profile = await syncUserProfile(token, user);
       setState('user_profile', profile);
       setState('is_authenticated', true);
 
@@ -62,10 +119,18 @@ export function initAuthListener() {
   });
 }
 
-async function syncUserProfile(token) {
+/**
+ * Sync the user's profile with the backend API.
+ * Falls back to a local profile if the API is unreachable.
+ *
+ * @param {string} token - Firebase ID token.
+ * @param {import('firebase/auth').User} firebaseUser - Firebase user object.
+ * @returns {Promise<Object>} The user profile.
+ */
+async function syncUserProfile(token, firebaseUser) {
   try {
     const apiBase = import.meta.env.VITE_API_URL || '/api';
-    const res = await fetch(`${apiBase}/auth/google`, {
+    const response = await fetch(`${apiBase}/auth/google`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -73,38 +138,22 @@ async function syncUserProfile(token) {
       },
       body: JSON.stringify({ idToken: token }),
     });
-    if (res.ok) {
-      const data = await res.json();
-      return data.data || data.profile || data;
+    if (response.ok) {
+      const responseData = await response.json();
+      return responseData.data || responseData.profile || responseData;
     }
-    const userData = JSON.parse(localStorage.getItem('firebase_user') || '{}');
-    return {
-      uid: userData.uid,
-      name: userData.name,
-      email: userData.email,
-      photoURL: userData.photoURL,
-      level: 1,
-      streak: 0,
-      totalCarbonSaved: 0,
-      ecoScore: 50,
-      onboardingCompleted: false,
-    };
-  } catch {
-    const userData = JSON.parse(localStorage.getItem('firebase_user') || '{}');
-    return {
-      uid: userData.uid,
-      name: userData.name,
-      email: userData.email,
-      photoURL: userData.photoURL,
-      level: 1,
-      streak: 0,
-      totalCarbonSaved: 0,
-      ecoScore: 50,
-      onboardingCompleted: false,
-    };
+    return buildFallbackProfile(firebaseUser);
+  } catch (error) {
+    console.warn('Profile sync failed, using fallback:', error);
+    return buildFallbackProfile(firebaseUser);
   }
 }
 
+/**
+ * Sign in with Google using a popup flow.
+ * @returns {Promise<{user: Object, profile: Object}>} Auth result.
+ * @throws {Error} If Google sign-in fails.
+ */
 export async function signInWithGoogle() {
   try {
     const result = await signInWithPopup(auth, googleProvider);
@@ -112,14 +161,9 @@ export async function signInWithGoogle() {
     const token = await user.getIdToken(true);
 
     localStorage.setItem('id_token', token);
-    localStorage.setItem('firebase_user', JSON.stringify({
-      uid: user.uid,
-      name: user.displayName || user.email?.split('@')[0] || 'User',
-      email: user.email,
-      photoURL: user.photoURL,
-    }));
+    localStorage.setItem('firebase_user', JSON.stringify(serializeFirebaseUser(user)));
 
-    const profile = await syncUserProfile(token);
+    const profile = await syncUserProfile(token, user);
     setState('user_profile', profile);
     setState('is_authenticated', true);
 
@@ -130,10 +174,14 @@ export async function signInWithGoogle() {
   }
 }
 
+/**
+ * Sign the current user out and clear all local state.
+ */
 export async function logout() {
   try {
     await signOut(auth);
-  } catch {
+  } catch (error) {
+    console.warn('Sign-out error:', error);
   }
   localStorage.removeItem('id_token');
   localStorage.removeItem('firebase_user');
@@ -141,6 +189,10 @@ export async function logout() {
   setState('user_profile', null);
 }
 
+/**
+ * Get the current Firebase ID token, refreshing if needed.
+ * @returns {Promise<string|null>} The ID token or null.
+ */
 export async function getCurrentToken() {
   if (!auth.currentUser && getState('auth_initialized') !== true) {
     await authReady;
@@ -153,14 +205,23 @@ export async function getCurrentToken() {
         localStorage.setItem('id_token', token);
         return token;
       }
-    } catch (e) {
-      console.warn("Failed to get ID token from Firebase user, falling back to localStorage", e);
+    } catch (error) {
+      console.warn('Failed to get ID token from Firebase user:', error);
     }
   }
   return localStorage.getItem('id_token') || null;
 }
 
+/**
+ * Get the currently cached Firebase user data.
+ * @returns {Object|null} The cached user object, or null.
+ */
 export function getCurrentUser() {
-  const data = localStorage.getItem('firebase_user');
-  return data ? JSON.parse(data) : null;
+  const serializedUser = localStorage.getItem('firebase_user');
+  if (!serializedUser) return null;
+  try {
+    return JSON.parse(serializedUser);
+  } catch {
+    return null;
+  }
 }

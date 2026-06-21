@@ -3,7 +3,6 @@ import logging
 import os
 import time
 from datetime import datetime, timezone, timedelta
-from typing import Any, Optional
 
 import requests
 
@@ -12,7 +11,6 @@ from app.services.cache_service import CacheService
 from app.services.carbon_service import estimate_gemini_carbon
 from app.utils.safety import (
     check_input_safety,
-    check_output_safety,
     filter_unsafe_output,
 )
 from app.extensions import db
