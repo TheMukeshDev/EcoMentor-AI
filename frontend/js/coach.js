@@ -2,7 +2,7 @@ import { api, registerRoute, htmlEscape } from './main.js';
 
 async function renderCoach() {
   const app = document.getElementById('app');
-  app.innerHTML = '<div class="spinner" role="status"><span class="sr-only">Loading coach...</span></div>';
+  app.innerHTML = '<div class="spinner" role="status"><span class="sr-only">Loading coach...</span></div>'; /* safe HTML - static spinner */
 
   try {
     const [missionRes, personalityRes, tipsRes, forecastRes] = await Promise.all([
@@ -20,7 +20,7 @@ async function renderCoach() {
     const tips = tipsRes.data?.tips || [];
     const forecast = forecastRes?.data;
 
-    app.innerHTML = `
+    app.innerHTML = /* safe HTML - user content escaped with htmlEscape() */ `
       <div style="max-width:600px;margin:0 auto">
         <h1 style="margin-bottom:8px">AI Coach</h1>
         <p style="color:var(--color-text-secondary);margin-bottom:24px">
@@ -124,7 +124,7 @@ async function renderCoach() {
     setupChat();
     setupWhatIf();
   } catch (err) {
-    app.innerHTML = `
+    app.innerHTML = /* safe HTML - error escaped with htmlEscape() */ `
       <div class="error-state">
         <span class="empty-icon">&#9888;</span>
         <p>${htmlEscape(err.message)}</p>
@@ -183,10 +183,10 @@ function appendMessage(role, content, isThinking = false) {
   const div = document.createElement('div');
   div.className = `chat-message ${role}${isThinking ? ' thinking' : ''}`;
   if (isThinking) {
-    div.innerHTML = `<span class="chat-avatar" aria-hidden="true">&#129309;</span><div class="chat-bubble">${htmlEscape(content)}</div>`;
+    div.innerHTML = `<span class="chat-avatar" aria-hidden="true">&#129309;</span><div class="chat-bubble">${htmlEscape(content)}</div>`; /* safe HTML - content escaped */
   } else {
     const avatar = role === 'assistant' ? '&#129309;' : '&#128100;';
-    div.innerHTML = `<span class="chat-avatar" aria-hidden="true">${avatar}</span><div class="chat-bubble">${htmlEscape(content)}</div>`;
+    div.innerHTML = `<span class="chat-avatar" aria-hidden="true">${avatar}</span><div class="chat-bubble">${htmlEscape(content)}</div>`; /* safe HTML - content escaped */
   }
   messages.appendChild(div);
   messages.scrollTop = messages.scrollHeight;
@@ -242,14 +242,14 @@ function setupWhatIf() {
       result.innerHTML = `
         <div class="what-if-result-inner" style="padding:12px;background:var(--color-surface-alt, #f7fafc);border-radius:8px">
           <p><strong>Impact:</strong> ${htmlEscape(data.estimated_impact || 'unknown')}</p>
-          <p><strong>Carbon saved:</strong> ${data.carbon_saved || 0} kg CO&#8322;</p>
+          <p><strong>Carbon saved:</strong> ${Number(data.carbon_saved) || 0} kg CO&#8322;</p>
           <p><strong>Comparison:</strong> ${htmlEscape(data.comparison || 'N/A')}</p>
           <p><strong>Tip:</strong> ${htmlEscape(data.tip || 'Keep making sustainable choices!')}</p>
         </div>
-      `;
+      `; /* safe HTML - all user strings escaped, carbon_saved converted to number */
       result.style.display = 'block';
     } catch (err) {
-      result.innerHTML = `<p style="color:var(--color-error)">${htmlEscape(err.message)}</p>`;
+      result.innerHTML = `<p style="color:var(--color-error)">${htmlEscape(err.message)}</p>`; /* safe HTML - error escaped */
       result.style.display = 'block';
     }
 

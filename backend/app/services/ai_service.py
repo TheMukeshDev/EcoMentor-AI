@@ -1,8 +1,17 @@
+"""Gemini-powered AI service for personalized sustainability coaching.
+
+Handles recommendations, weekly reports, eco-personalities, daily
+missions, conversational chat, carbon forecasting, and what-if analysis.
+"""
+
+from __future__ import annotations
+
 import json
 import logging
 import os
 import time
 from datetime import datetime, timezone, timedelta
+from typing import Any
 
 import requests
 
@@ -13,49 +22,40 @@ from app.utils.safety import (
     check_input_safety,
     filter_unsafe_output,
 )
-from app.extensions import db
+
 
 logger = logging.getLogger(__name__)
 
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
-GEMINI_MODEL = "gemini-3.5-flash"
+GEMINI_MODEL = "gemini-2.0-flash"
 MAX_RETRIES = 3
 RETRY_DELAY = 1.0
 CONVERSATION_TTL_DAYS = int(os.getenv("CONVERSATION_TTL_DAYS", "7"))
 
-_FALLBACKS = {
-    "recommendations": [
-        "Try walking or cycling for short trips instead of driving",
-        "Switch to energy-efficient LED bulbs at home",
-        "Reduce food waste by planning meals ahead",
-    ],
-    "weekly_report": {
-        "biggest_contributor": "Transport",
-        "best_improvement": "Keep logging your daily activities to discover trends",
-        "next_week_goal": "Reduce your carbon score by 5 points",
-        "summary": "You are building awareness of your carbon footprint. Consistent logging helps identify patterns and opportunities for improvement.",
-    },
-    "eco_personality": {
-        "personality": "Eco Explorer",
-        "strength": "Starting your sustainability journey",
-        "weakness": "Building consistent habits",
-        "next_goal": "Log activities daily for a week",
-    },
-    "daily_mission": {
-        "challenge": "Log today's activities to track your carbon footprint",
-        "reward": 50,
-    },
-}
-
 
 class AIService:
-    def __init__(self, api_key=None, ai_report_repository=None):
+    def __init__(self, api_key: str | None = None, ai_report_repository=None) -> None:
+        """Initialize the AI service with API key and optional report repository.
+
+        Args:
+            api_key: Gemini API key. Falls back to GEMINI_API_KEY env var.
+            ai_report_repository: Optional repository for persisting AI reports.
+        """
         self._api_key = api_key or os.getenv("GEMINI_API_KEY")
         self._prompts = PromptService()
         self._cache = CacheService(ai_report_repository)
-        self._conversations = {}
+        self._conversations: dict[str, Any] = {}
 
-    def get_recommendations(self, user_id, data):
+    def get_recommendations(self, user_id: str, data: dict) -> dict:
+        """Generate personalized carbon reduction recommendations.
+
+        Args:
+            user_id: Unique identifier for the user.
+            data: User context data including scores, categories, and level.
+
+        Returns:
+            Dictionary with 'tips' list and 'projected_weekly_savings_kg'.
+        """
         cached = self._cache.get(user_id, "recommendations")
         if cached:
             return cached
@@ -66,16 +66,17 @@ class AIService:
                 "tips": [
                     "Log transport activities like walking, biking, or taking bus.",
                     "Track your electricity consumption and appliance usage.",
-                    "Log dietary choices like vegetarian or vegan options."
+                    "Log dietary choices like vegetarian or vegan options.",
                 ],
-                "projected_weekly_savings_kg": 0.0
+                "projected_weekly_savings_kg": 0.0,
             }
             return default_tips
 
         prompt = self._prompts.recommendations(data)
         result = self._call_gemini(prompt, deterministic=True)
-        
+
         from app.blueprints.ai.schemas import GeminiRecommendationsResponse
+
         try:
             if result and isinstance(result, dict):
                 validated = GeminiRecommendationsResponse(**result)
@@ -89,13 +90,22 @@ class AIService:
             "tips": [
                 f"Reduce {data.get('worst_category', 'transport')} emissions by optimizing daily routines",
                 "Try walking or cycling for trips under 2 km",
-                "Unplug devices when not in use to reduce standby electricity"
+                "Unplug devices when not in use to reduce standby electricity",
             ],
-            "projected_weekly_savings_kg": 2.5
+            "projected_weekly_savings_kg": 2.5,
         }
         return fallback_tips
 
-    def get_weekly_report(self, user_id, user_context):
+    def get_weekly_report(self, user_id: str, user_context: dict) -> dict:
+        """Generate a weekly carbon report with analysis and goals.
+
+        Args:
+            user_id: Unique identifier for the user.
+            user_context: User data including activity count, scores, and trends.
+
+        Returns:
+            Dictionary with summary, biggest contributor, and reduction target.
+        """
         cached = self._cache.get(user_id, "weekly_report")
         if cached:
             return cached
@@ -107,13 +117,14 @@ class AIService:
                 "best_improvement": "No activities logged yet",
                 "next_week_goal": "Log your first activity to start tracking",
                 "summary": "Log daily activities to see carbon reduction insights.",
-                "carbon_reduction_target_kg": 0.0
+                "carbon_reduction_target_kg": 0.0,
             }
 
         prompt = self._prompts.weekly_report(user_context)
         result = self._call_gemini(prompt, deterministic=True)
 
         from app.blueprints.ai.schemas import GeminiWeeklyReportResponse
+
         try:
             if result and isinstance(result, dict):
                 validated = GeminiWeeklyReportResponse(**result)
@@ -128,10 +139,19 @@ class AIService:
             "best_improvement": "Starting consistent tracking habits",
             "next_week_goal": "Log daily activities and reduce score by 5%",
             "summary": "Consistent logging helps identify patterns and opportunities for improvement.",
-            "carbon_reduction_target_kg": 3.0
+            "carbon_reduction_target_kg": 3.0,
         }
 
-    def get_eco_personality(self, user_id, user_context):
+    def get_eco_personality(self, user_id: str, user_context: dict) -> dict:
+        """Determine the user's eco-personality based on their activity data.
+
+        Args:
+            user_id: Unique identifier for the user.
+            user_context: User data including level, streak, and weekly averages.
+
+        Returns:
+            Dictionary with personality type, strengths, weaknesses, and next goal.
+        """
         cached = self._cache.get(user_id, "eco_personality")
         if cached:
             return cached
@@ -147,10 +167,19 @@ class AIService:
             "personality": "Eco Novice",
             "strength": "High potential for green actions",
             "weakness": "Lacks consistent tracking history",
-            "next_goal": "Log at least 3 activities this week"
+            "next_goal": "Log at least 3 activities this week",
         }
 
-    def get_daily_mission(self, user_id, user_context):
+    def get_daily_mission(self, user_id: str, user_context: dict) -> dict:
+        """Generate a daily sustainability challenge for the user.
+
+        Args:
+            user_id: Unique identifier for the user.
+            user_context: User data including level for difficulty calibration.
+
+        Returns:
+            Dictionary with challenge description and reward points.
+        """
         cached = self._cache.get(user_id, "daily_mission")
         if cached:
             return cached
@@ -164,10 +193,20 @@ class AIService:
 
         return {
             "challenge": "Walk or bike for all trips under 2 km today",
-            "reward": 50
+            "reward": 50,
         }
 
-    def get_carbon_savings_forecast(self, user_id, user_context, tips):
+    def get_carbon_savings_forecast(self, user_id: str, user_context: dict, tips: list) -> dict:
+        """Generate a carbon savings forecast based on user context and tips.
+
+        Args:
+            user_id: Unique identifier for the user.
+            user_context: User data including weekly averages and level.
+            tips: List of recommendation tips to base projections on.
+
+        Returns:
+            Dictionary with current footprint and monthly projections.
+        """
         cached = self._cache.get(user_id, "carbon_savings_forecast")
         if cached:
             return cached
@@ -179,6 +218,7 @@ class AIService:
         result = self._call_gemini(prompt, deterministic=True)
 
         from app.blueprints.ai.schemas import CarbonSavingsForecastResponse
+
         try:
             if result and isinstance(result, dict):
                 validated = CarbonSavingsForecastResponse(**result)
@@ -193,10 +233,11 @@ class AIService:
             "forecast_1_month_kg": round(weekly_avg * 0.10 * 4, 2),
             "forecast_3_months_kg": round(weekly_avg * 0.12 * 12, 2),
             "forecast_6_months_kg": round(weekly_avg * 0.15 * 24, 2),
-            "motivation_message": "Log daily activities and follow recommendations to achieve these carbon savings!"
+            "motivation_message": "Log daily activities and follow recommendations to achieve these carbon savings!",
         }
 
-    def _summarize_and_compact(self, user_id):
+    def _summarize_and_compact(self, user_id: str) -> None:
+        """Summarize older conversation messages to keep history compact."""
         history = self._conversations.get(user_id, [])
         if len(history) < 40:
             return
@@ -240,13 +281,23 @@ class AIService:
                 user_id,
             )
 
-    def chat(self, user_id, user_message, user_context):
+    def chat(self, user_id: str, user_message: str, user_context: dict) -> dict:
+        """Process a chat message and return an AI coaching response.
+
+        Args:
+            user_id: Unique identifier for the user.
+            user_message: The user's chat message.
+            user_context: User data for contextualizing the response.
+
+        Returns:
+            Dictionary with response text, actionable tip, and estimated reduction.
+        """
         lower_msg = user_message.lower().strip()
         if lower_msg in ("hello", "hi", "hey", "greetings"):
             return {
                 "response": "Hello! I'm EcoMentor, your AI sustainability coach. How can I help you reduce your carbon footprint today?",
                 "carbon_reduction_actionable": "Start by logging your transport or diet activities today.",
-                "estimated_reduction_kg": 0.0
+                "estimated_reduction_kg": 0.0,
             }
 
         safety = check_input_safety(user_message)
@@ -255,7 +306,7 @@ class AIService:
             return {
                 "response": "I'm here to discuss sustainability and eco-friendly topics. Let's keep our conversation focused on reducing your carbon footprint!",
                 "carbon_reduction_actionable": "Keep discussions green and positive.",
-                "estimated_reduction_kg": 0.0
+                "estimated_reduction_kg": 0.0,
             }
 
         self._ensure_conversation_loaded(user_id)
@@ -266,6 +317,7 @@ class AIService:
         result = self._call_gemini(prompt)
 
         from app.blueprints.ai.schemas import GeminiChatResponse
+
         validated_dict = None
         try:
             if result and isinstance(result, dict):
@@ -280,7 +332,7 @@ class AIService:
             validated_dict = {
                 "response": "I'm here to help with your sustainability questions. Could you rephrase that?",
                 "carbon_reduction_actionable": "Log your daily actions to track carbon footprint.",
-                "estimated_reduction_kg": 0.1
+                "estimated_reduction_kg": 0.1,
             }
 
         history.append(
@@ -302,25 +354,50 @@ class AIService:
         self._persist_conversation(user_id, self._conversations[user_id])
         return validated_dict
 
-    def get_conversation_history(self, user_id):
+    def get_conversation_history(self, user_id: str) -> list:
+        """Retrieve the conversation history for a user.
+
+        Args:
+            user_id: Unique identifier for the user.
+
+        Returns:
+            List of conversation message dictionaries.
+        """
         self._ensure_conversation_loaded(user_id)
         return self._conversations.get(user_id, [])
 
-    def clear_conversation(self, user_id):
+    def clear_conversation(self, user_id: str) -> None:
+        """Clear the conversation history for a user from memory and store.
+
+        Args:
+            user_id: Unique identifier for the user.
+        """
         self._conversations.pop(user_id, None)
         self._delete_conversation_from_store(user_id)
 
-    def _ensure_conversation_loaded(self, user_id):
+    def _ensure_conversation_loaded(self, user_id: str) -> None:
+        """Load conversation from persistent store if not already in memory."""
         if user_id not in self._conversations:
             stored = self._load_conversation_from_store(user_id)
             self._conversations[user_id] = stored
 
-    def _conversation_collection(self):
-        if db is None:
+    def _conversation_collection(self) -> Any | None:
+        """Get the Firestore conversation collection reference."""
+        try:
+            db = current_app.extensions["firestore"]
+            return db.collection("conversations")
+        except (KeyError, RuntimeError):
             return None
-        return db.collection("conversations")
 
-    def _load_conversation_from_store(self, user_id):
+    def _load_conversation_from_store(self, user_id: str) -> list:
+        """Load conversation messages from Firestore for a given user.
+
+        Args:
+            user_id: Unique identifier for the user.
+
+        Returns:
+            List of valid (non-expired) conversation messages.
+        """
         col = self._conversation_collection()
         if col is None:
             return []
@@ -329,18 +406,20 @@ class AIService:
             if doc.exists:
                 data = doc.to_dict()
                 messages = data.get("messages", [])
-                cutoff = datetime.now(timezone.utc) - timedelta(
-                    days=CONVERSATION_TTL_DAYS
-                )
-                valid = [
-                    m for m in messages if m.get("timestamp", "") >= cutoff.isoformat()
-                ]
+                cutoff = datetime.now(timezone.utc) - timedelta(days=CONVERSATION_TTL_DAYS)
+                valid = [m for m in messages if m.get("timestamp", "") >= cutoff.isoformat()]
                 return valid
         except Exception as exc:
             logger.warning("Failed to load conversation for %s: %s", user_id, exc)
         return []
 
-    def _persist_conversation(self, user_id, messages):
+    def _persist_conversation(self, user_id: str, messages: list) -> None:
+        """Save conversation messages to Firestore.
+
+        Args:
+            user_id: Unique identifier for the user.
+            messages: List of conversation message dictionaries.
+        """
         col = self._conversation_collection()
         if col is None:
             return
@@ -354,7 +433,12 @@ class AIService:
         except Exception as exc:
             logger.warning("Failed to persist conversation for %s: %s", user_id, exc)
 
-    def _delete_conversation_from_store(self, user_id):
+    def _delete_conversation_from_store(self, user_id: str) -> None:
+        """Delete conversation messages from Firestore for a user.
+
+        Args:
+            user_id: Unique identifier for the user.
+        """
         col = self._conversation_collection()
         if col is None:
             return
@@ -363,13 +447,25 @@ class AIService:
         except Exception as exc:
             logger.warning("Failed to delete conversation for %s: %s", user_id, exc)
 
-    def whats_if(self, user_id, current_data, scenario_changes, user_context):
-        prompt = self._prompts.whats_if_analysis(
-            current_data, scenario_changes, user_context
-        )
+    def whats_if(
+        self, user_id: str, current_data: dict, scenario_changes: dict, user_context: dict
+    ) -> dict:
+        """Analyze the carbon impact of a hypothetical lifestyle change.
+
+        Args:
+            user_id: Unique identifier for the user.
+            current_data: Current activity data.
+            scenario_changes: Proposed changes to the user's habits.
+            user_context: User context data for personalization.
+
+        Returns:
+            Dictionary with impact analysis, carbon saved, and comparison.
+        """
+        prompt = self._prompts.whats_if_analysis(current_data, scenario_changes, user_context)
         result = self._call_gemini(prompt, deterministic=True)
-        
+
         from app.blueprints.ai.schemas import GeminiWhatsIfResponse
+
         try:
             if result and isinstance(result, dict):
                 validated = GeminiWhatsIfResponse(**result)
@@ -383,14 +479,24 @@ class AIService:
             "carbon_saved": round(carbon_est * 0.15, 2),
             "comparison": f"Estimated 15% reduction based on typical changes (baseline: {carbon_est} kg CO2e)",
             "tip": "Every small change adds up. Try it for a week!",
-            "savings_forecast_30_days": round(carbon_est * 0.15 * 30, 2)
+            "savings_forecast_30_days": round(carbon_est * 0.15 * 30, 2),
         }
 
+    def submit_feedback(
+        self, user_id: str, feedback_type: str, user_message: str, user_context: dict
+    ) -> dict:
+        """Submit user feedback on recommendations and get an adjusted response.
 
-    def submit_feedback(self, user_id, feedback_type, user_message, user_context):
-        prompt = self._prompts.feedback_prompt(
-            user_message, feedback_type, user_context
-        )
+        Args:
+            user_id: Unique identifier for the user.
+            feedback_type: Category or type of feedback.
+            user_message: The user's feedback message.
+            user_context: User context data for personalization.
+
+        Returns:
+            Dictionary with acknowledgment, adjusted tip, and follow-up question.
+        """
+        prompt = self._prompts.feedback_prompt(user_message, feedback_type, user_context)
         result = self._call_gemini(prompt, deterministic=True)
         if result:
             self._cache.invalidate(user_id, "recommendations")
@@ -401,13 +507,35 @@ class AIService:
             "follow_up": "What area would you like to focus on?",
         }
 
-    def invalidate_cache(self, user_id):
+    def invalidate_cache(self, user_id: str) -> None:
+        """Invalidate all cached AI responses for a user.
+
+        Args:
+            user_id: Unique identifier for the user.
+        """
         self._cache.invalidate(user_id)
 
-    def _estimate_carbon(self, data):
+    def _estimate_carbon(self, data: dict) -> float:
+        """Estimate daily carbon footprint from activity data.
+
+        Args:
+            data: Dictionary of user activity data.
+
+        Returns:
+            Estimated carbon footprint in kg CO2e.
+        """
         return estimate_gemini_carbon(data)
 
-    def _call_gemini(self, prompt, deterministic=False):
+    def _call_gemini(self, prompt: str, deterministic: bool = False) -> dict | None:
+        """Call the Gemini API with a prompt and return parsed JSON response.
+
+        Args:
+            prompt: The text prompt to send to Gemini.
+            deterministic: If True, use temperature 0 with fixed seed for reproducibility.
+
+        Returns:
+            Parsed response dictionary, or None if the call failed.
+        """
         if not self._api_key:
             logger.warning("Gemini API key not configured")
             return None
@@ -431,8 +559,7 @@ class AIService:
                 "maxOutputTokens": 512,
             },
             "safetySettings": [
-                {"category": c, "threshold": "BLOCK_MEDIUM_AND_ABOVE"}
-                for c in HARM_CATEGORIES
+                {"category": c, "threshold": "BLOCK_MEDIUM_AND_ABOVE"} for c in HARM_CATEGORIES
             ],
         }
         if deterministic:
@@ -464,16 +591,22 @@ class AIService:
                     return None
             except requests.RequestException as exc:
                 last_error = exc
-                logger.warning(
-                    "Gemini request failed (attempt %d): %s", attempt + 1, exc
-                )
+                logger.warning("Gemini request failed (attempt %d): %s", attempt + 1, exc)
                 if attempt < MAX_RETRIES - 1:
                     time.sleep(RETRY_DELAY)
 
         logger.error("Gemini call failed after %d retries: %s", MAX_RETRIES, last_error)
         return None
 
-    def _parse_response(self, data):
+    def _parse_response(self, data: dict) -> dict | None:
+        """Parse the Gemini API response into a Python dictionary.
+
+        Args:
+            data: Raw response data from the Gemini API.
+
+        Returns:
+            Parsed dictionary, or None if parsing failed.
+        """
         try:
             candidates = data.get("candidates", [])
             if not candidates:
@@ -482,8 +615,11 @@ class AIService:
             finish_reason = candidate.get("finishReason")
             if finish_reason == "SAFETY":
                 logger.warning("Gemini response blocked due to safety settings.")
-                return {"response": "This content is unavailable as it conflicts with safety guidelines.", "error": "SAFETY_BLOCKED"}
-            
+                return {
+                    "response": "This content is unavailable as it conflicts with safety guidelines.",
+                    "error": "SAFETY_BLOCKED",
+                }
+
             content = candidate.get("content", {})
             parts = content.get("parts", [])
             if not parts:

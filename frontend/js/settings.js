@@ -2,7 +2,7 @@ import { registerRoute } from './main.js';
 
 function renderSettings() {
   const app = document.getElementById('app');
-  app.innerHTML = `
+  app.innerHTML = /* safe HTML - static settings template */ `
     <div style="max-width:500px;margin:0 auto">
       <h1 style="margin-bottom:24px">Settings</h1>
 

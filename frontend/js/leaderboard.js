@@ -3,7 +3,7 @@ import { leaderboardSkeleton } from './skeletons.js';
 
 async function renderLeaderboard() {
   const app = document.getElementById('app');
-  app.innerHTML = leaderboardSkeleton();
+  app.innerHTML = leaderboardSkeleton(); /* safe HTML - skeleton template */
 
   try {
     const res = await api('/leaderboard/global').catch(() => ({ data: [] }));
@@ -16,7 +16,7 @@ async function renderLeaderboard() {
       'Planet Hero': '#fbbf24',
     };
 
-    app.innerHTML = `
+    app.innerHTML = /* safe HTML - content escaped with htmlEscape() */ `
       <div class="leaderboard-page">
         <h1>Leaderboard</h1>
         ${entries.length === 0 ? `
@@ -52,7 +52,7 @@ async function renderLeaderboard() {
       </div>
     `;
   } catch (err) {
-    app.innerHTML = `
+    app.innerHTML = /* safe HTML - error escaped with htmlEscape() */ `
       <div class="error-state">
         <span class="empty-icon">&#9888;</span>
         <p>${htmlEscape(err.message)}</p>

@@ -61,19 +61,13 @@ class DashboardService:
             streak count, and total activities logged.
         """
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        seven_days_ago = (
-            datetime.now(timezone.utc) - timedelta(days=7)
-        ).strftime("%Y-%m-%d")
+        seven_days_ago = (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%d")
 
         user = self._user_repo.get(user_id)
         streak = user.get("streak", 0) if user else 0
 
-        today_entry = self._carbon_history_repo.find_by_user_and_date(
-            user_id, today
-        )
-        current_score = (
-            today_entry.get("carbon_score", 0) if today_entry else 0
-        )
+        today_entry = self._carbon_history_repo.find_by_user_and_date(user_id, today)
+        current_score = today_entry.get("carbon_score", 0) if today_entry else 0
 
         week_entries = self._carbon_history_repo.find_by_user_and_date_range(
             user_id, seven_days_ago, today
@@ -90,9 +84,7 @@ class DashboardService:
             "activities_logged": activities_logged,
         }
 
-    def get_history(
-        self, user_id: str, period: str
-    ) -> list[dict[str, Any]]:
+    def get_history(self, user_id: str, period: str) -> list[dict[str, Any]]:
         """Get carbon history over a specified period.
 
         Args:
@@ -107,9 +99,7 @@ class DashboardService:
         start = (today - timedelta(days=days)).strftime("%Y-%m-%d")
         end = today.strftime("%Y-%m-%d")
 
-        entries = self._carbon_history_repo.find_by_user_and_date_range(
-            user_id, start, end
-        )
+        entries = self._carbon_history_repo.find_by_user_and_date_range(user_id, start, end)
         return [
             {
                 "date": entry.get("date"),
@@ -138,15 +128,11 @@ class DashboardService:
         previous_end = (today - timedelta(days=8)).strftime("%Y-%m-%d")
         end = today.strftime("%Y-%m-%d")
 
-        current_entries = (
-            self._carbon_history_repo.find_by_user_and_date_range(
-                user_id, current_start, end
-            )
+        current_entries = self._carbon_history_repo.find_by_user_and_date_range(
+            user_id, current_start, end
         )
-        previous_entries = (
-            self._carbon_history_repo.find_by_user_and_date_range(
-                user_id, previous_start, previous_end
-            )
+        previous_entries = self._carbon_history_repo.find_by_user_and_date_range(
+            user_id, previous_start, previous_end
         )
 
         current_avg = _compute_average(current_entries, "carbon_score")
@@ -188,18 +174,77 @@ class DashboardService:
                 "food": DefaultActivityProfile.FOOD.value,
                 "ac_usage": DefaultActivityProfile.AC_USAGE.value,
             }
-            recommendations = self._ai_service.get_recommendations(
-                user_id, recommendation_context
-            )
+            recommendations = self._ai_service.get_recommendations(user_id, recommendation_context)
             tip = _extract_first_tip(recommendations)
             insight = _generate_insight_message(trends)
 
-            return _build_insight_response(
-                summary, trends, ai_insight=insight, ai_tip=tip
-            )
+            return _build_insight_response(summary, trends, ai_insight=insight, ai_tip=tip)
         except Exception as exc:
             logger.warning("Failed to generate AI insights: %s", exc)
             return _build_insight_response(summary, trends)
+
+    @staticmethod
+    def _avg_field(entries, field):
+        vals = [e.get(field, 0) for e in entries]
+        return round(sum(vals) / len(vals), 2) if vals else 0
+
+    @staticmethod
+    def _compute_trend(scores):
+        if len(scores) < 2:
+            return "stable"
+        window = scores[-3:] if len(scores) >= 3 else scores
+        if window[-1] < window[0]:
+            return "improving"
+        if window[-1] > window[0]:
+            return "declining"
+        return "stable"
+
+    @staticmethod
+    def _best_worst_category(week_entries):
+        totals = {}
+        counts = {}
+        for e in week_entries:
+            for cat in ("transport", "electricity", "food", "waste"):
+                val = e.get(cat, 0)
+                if val:
+                    totals[cat] = totals.get(cat, 0) + val
+                    counts[cat] = counts.get(cat, 0) + 1
+        avgs = {c: (totals[c] / counts[c] if counts.get(c) else 0) for c in totals}
+        if not avgs:
+            return "transport", "transport"
+        worst = max(avgs, key=avgs.get)
+        best = min(avgs, key=avgs.get)
+        return best, worst
+
+    def build_user_context(self, user_id):
+        user = self._user_repo.get(user_id) or {}
+        today = datetime.now(timezone.utc)
+        seven_days_ago = (today - timedelta(days=7)).strftime("%Y-%m-%d")
+        week_entries = self._carbon_history_repo.find_by_user_and_date_range(
+            user_id, seven_days_ago, today.strftime("%Y-%m-%d")
+        )
+        scores = [e.get("carbon_score", 0) for e in week_entries]
+        weekly_avg = round(sum(scores) / len(scores), 2) if scores else 0
+        activities = self._activity_repo.find_by_user_id(user_id)
+        best_cat, worst_cat = DashboardService._best_worst_category(week_entries)
+
+        return {
+            "level": user.get("level", "Beginner"),
+            "streak": user.get("streak", 0),
+            "weekly_avg": weekly_avg,
+            "current_score": scores[-1] if scores else 0,
+            "activity_count": len(activities),
+            "score_trend": DashboardService._compute_trend(scores),
+            "best_category": best_cat,
+            "worst_category": worst_cat,
+            "score_history": scores[-7:] if scores else [],
+            "weekly_data": {
+                "transport_avg": DashboardService._avg_field(week_entries, "transport"),
+                "electricity_avg": DashboardService._avg_field(week_entries, "electricity"),
+                "food_avg": DashboardService._avg_field(week_entries, "food"),
+                "waste_avg": DashboardService._avg_field(week_entries, "waste"),
+            },
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -207,9 +252,7 @@ class DashboardService:
 # ---------------------------------------------------------------------------
 
 
-def _compute_average(
-    entries: list[dict[str, Any]], field: str
-) -> float:
+def _compute_average(entries: list[dict[str, Any]], field: str) -> float:
     """Compute the average value of a numeric field across entries.
 
     Args:
@@ -273,19 +316,12 @@ def _generate_insight_message(trends: dict[str, Any]) -> str:
     change = trends.get("change", 0)
 
     if direction == "down":
-        return (
-            f"Your carbon score dropped by {change} points "
-            f"this week. Keep it up!"
-        )
+        return f"Your carbon score dropped by {change} points this week. Keep it up!"
     if direction == "up":
         return (
-            f"Your carbon score rose by {change} points. "
-            f"Try the tips below to reverse the trend."
+            f"Your carbon score rose by {change} points. Try the tips below to reverse the trend."
         )
-    return (
-        "Your carbon footprint is stable. "
-        "Small changes can make a big difference!"
-    )
+    return "Your carbon footprint is stable. Small changes can make a big difference!"
 
 
 def _build_insight_response(

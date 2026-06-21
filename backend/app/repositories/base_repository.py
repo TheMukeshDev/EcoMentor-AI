@@ -51,6 +51,8 @@ class BaseRepository:
     def update(self, doc_id: str, data: dict[str, Any]) -> dict[str, Any] | None:
         """Partially update an existing document.
 
+        Merges the update locally to avoid a second Firestore round-trip.
+
         Args:
             doc_id: The Firestore document ID.
             data: Fields to update.
@@ -58,8 +60,12 @@ class BaseRepository:
         Returns:
             The full updated document, or None if not found.
         """
-        self._collection.document(doc_id).update(data)
-        return self.get(doc_id)
+        doc_ref = self._collection.document(doc_id)
+        doc = doc_ref.get()
+        if not doc.exists:
+            return None
+        doc_ref.update(data)
+        return {"id": doc.id, **doc.to_dict(), **data}
 
     def delete(self, doc_id: str) -> None:
         """Delete a document by ID.
@@ -106,9 +112,7 @@ class BaseRepository:
         docs = query_ref.stream()
         return [{"id": doc.id, **doc.to_dict()} for doc in docs]
 
-    def count(
-        self, filters: list[tuple[str, str, Any]] | None = None
-    ) -> int:
+    def count(self, filters: list[tuple[str, str, Any]] | None = None) -> int:
         """Count documents matching the given filters.
 
         Args:
@@ -121,4 +125,9 @@ class BaseRepository:
         if filters:
             for field, operator, value in filters:
                 query_ref = query_ref.where(field, operator, value)
-        return len(list(query_ref.stream()))
+        count_query = query_ref.count()
+        result = count_query.get()
+        return result[0].value
+
+
+__all__ = ["BaseRepository"]

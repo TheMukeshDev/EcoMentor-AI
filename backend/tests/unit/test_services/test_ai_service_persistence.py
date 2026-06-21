@@ -11,26 +11,26 @@ class TestAIServicePersistence:
     def test_conversation_collection_with_db(self, ai_service, mocker):
         """Should return collection if db is initialized."""
         mock_db = MagicMock()
-        mocker.patch("app.services.ai_service.db", mock_db)
-        
+        mocker.patch("app.services.ai_service.current_app.extensions", {"firestore": mock_db})
+
         col = ai_service._conversation_collection()
         mock_db.collection.assert_called_once_with("conversations")
         assert col == mock_db.collection.return_value
 
     def test_conversation_collection_without_db(self, ai_service, mocker):
         """Should return None if db is not initialized."""
-        mocker.patch("app.services.ai_service.db", None)
+        mocker.patch("app.services.ai_service.current_app.extensions", {})
         assert ai_service._conversation_collection() is None
 
     def test_load_conversation_success(self, ai_service, mocker):
         """Should load conversation and filter out old messages."""
         mock_db = MagicMock()
         mocker.patch("app.services.ai_service.db", mock_db)
-        
+
         now = datetime.now(timezone.utc)
         recent = (now - timedelta(days=1)).isoformat()
         old = (now - timedelta(days=10)).isoformat()
-        
+
         mock_doc = MagicMock()
         mock_doc.exists = True
         mock_doc.to_dict.return_value = {
@@ -39,11 +39,11 @@ class TestAIServicePersistence:
                 {"content": "new msg", "timestamp": recent},
             ]
         }
-        
+
         mock_col = MagicMock()
         mock_col.document.return_value.get.return_value = mock_doc
         mocker.patch.object(ai_service, "_conversation_collection", return_value=mock_col)
-        
+
         result = ai_service._load_conversation_from_store("user-1")
         assert len(result) == 1
         assert result[0]["content"] == "new msg"
@@ -53,7 +53,7 @@ class TestAIServicePersistence:
         mock_col = MagicMock()
         mock_col.document.return_value.get.return_value.exists = False
         mocker.patch.object(ai_service, "_conversation_collection", return_value=mock_col)
-        
+
         result = ai_service._load_conversation_from_store("user-1")
         assert result == []
 
@@ -67,7 +67,7 @@ class TestAIServicePersistence:
         mock_col = MagicMock()
         mock_col.document.return_value.get.side_effect = Exception("DB error")
         mocker.patch.object(ai_service, "_conversation_collection", return_value=mock_col)
-        
+
         result = ai_service._load_conversation_from_store("user-1")
         assert result == []
 
@@ -75,10 +75,10 @@ class TestAIServicePersistence:
         """Should persist conversation."""
         mock_col = MagicMock()
         mocker.patch.object(ai_service, "_conversation_collection", return_value=mock_col)
-        
+
         messages = [{"content": "hello"}]
         ai_service._persist_conversation("user-1", messages)
-        
+
         mock_col.document.assert_called_with("user-1")
         mock_col.document.return_value.set.assert_called_once()
         args = mock_col.document.return_value.set.call_args[0][0]
@@ -96,7 +96,7 @@ class TestAIServicePersistence:
         mock_col = MagicMock()
         mock_col.document.return_value.set.side_effect = Exception("DB error")
         mocker.patch.object(ai_service, "_conversation_collection", return_value=mock_col)
-        
+
         ai_service._persist_conversation("user-1", [])
         # No error should be raised
 
@@ -104,7 +104,7 @@ class TestAIServicePersistence:
         """Should delete conversation."""
         mock_col = MagicMock()
         mocker.patch.object(ai_service, "_conversation_collection", return_value=mock_col)
-        
+
         ai_service._delete_conversation_from_store("user-1")
         mock_col.document.assert_called_with("user-1")
         mock_col.document.return_value.delete.assert_called_once()
@@ -120,6 +120,6 @@ class TestAIServicePersistence:
         mock_col = MagicMock()
         mock_col.document.return_value.delete.side_effect = Exception("DB error")
         mocker.patch.object(ai_service, "_conversation_collection", return_value=mock_col)
-        
+
         ai_service._delete_conversation_from_store("user-1")
         # No error should be raised

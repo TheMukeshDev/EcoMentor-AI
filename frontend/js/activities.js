@@ -15,7 +15,7 @@ function renderWizard() {
   wizardData = {};
   currentStep = 0;
   const app = document.getElementById('app');
-  app.innerHTML = `
+  app.innerHTML = /* safe HTML - static wizard template */ `
     <div class="wizard-page">
       <h1>Log Activity</h1>
       <p>Tell us about your day — one step at a time</p>

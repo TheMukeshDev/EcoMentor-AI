@@ -1,6 +1,8 @@
 import os
 import logging
 
+"""Google Cloud Secret Manager integration with env var fallback."""
+
 logger = logging.getLogger(__name__)
 
 _client = None
@@ -38,7 +40,7 @@ def get_secret(name, default=None):
 
 
 def validate_required_secrets(app):
-    required = ["SECRET_KEY"]
+    required = ["SECRET_KEY", "GEMINI_API_KEY"]
     if app.config.get("APP_ENV") == "production":
         required.append("GCP_PROJECT_ID")
 

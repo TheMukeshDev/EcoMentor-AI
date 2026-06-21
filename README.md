@@ -199,7 +199,7 @@ cd frontend && npx vitest run   # All tests
 
 | Component | Technology |
 |---|---|
-| Backend | Python 3.14 · Flask 3.1 · Gunicorn |
+| Backend | Python 3.12 · Flask 3.1 · Gunicorn |
 | Database | Firestore (Native mode) |
 | Auth | JWT (PyJWT) |
 | Infra | Cloud Run · Firebase Hosting · Secret Manager |

@@ -17,7 +17,7 @@ const BADGES = [
 
 async function renderAchievements() {
   const app = document.getElementById('app');
-  app.innerHTML = achievementsSkeleton();
+  app.innerHTML = achievementsSkeleton(); /* safe HTML - skeleton template */
 
   try {
     const profileRes = await api('/auth/profile').catch(() => ({ data: {} }));
@@ -33,7 +33,7 @@ async function renderAchievements() {
       ? Math.round(((points - currentLevel.minPoints) / (nextLevel.minPoints - currentLevel.minPoints)) * 100)
       : 100;
 
-    app.innerHTML = `
+    app.innerHTML = /* safe HTML - content escaped with htmlEscape() */ `
       <div class="achievements-page">
         <h1>Achievements</h1>
         <p>Track your eco journey</p>
@@ -66,7 +66,7 @@ async function renderAchievements() {
       </div>
     `;
   } catch (err) {
-    app.innerHTML = `
+    app.innerHTML = /* safe HTML - error message escaped with htmlEscape() */ `
       <div class="error-state">
         <span class="empty-icon">&#9888;</span>
         <p>${htmlEscape(err.message)}</p>

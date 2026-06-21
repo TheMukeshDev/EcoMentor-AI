@@ -1,36 +1,51 @@
 import logging
 
-from flask import Blueprint, request
+from flask import Blueprint, request, g
 
 from app.middleware.auth_middleware import require_auth
 from app.utils.responses import success_response, error_response
-from app.extensions import db
 from app.repositories.carbon_history_repository import CarbonHistoryRepository
 from app.repositories.activity_repository import ActivityRepository
 from app.repositories.user_repository import UserRepository
 from app.services.dashboard_service import DashboardService
 from app.services.ai_service import AIService
 
+"""Dashboard blueprint routes for carbon footprint analytics.
+
+Aggregates summary statistics, historical trends, and AI-powered
+insights for the user's dashboard view.
+"""
+
 logger = logging.getLogger(__name__)
 
 dashboard_bp = Blueprint("dashboard", __name__)
 
-_carbon_history_repo = CarbonHistoryRepository(db)
-_activity_repo = ActivityRepository(db)
-_user_repo = UserRepository(db)
-_ai_service = AIService()
-_service = DashboardService(
-    _carbon_history_repo, _activity_repo, _user_repo, ai_service=_ai_service
-)
+
+VALID_PERIODS = {"last_7", "last_30", "last_90", "all"}
+
+
+def _get_db():
+    from flask import current_app
+
+    return current_app.extensions["firestore"]
+
+
+def _get_service():
+    db = _get_db()
+
+    return DashboardService(
+        CarbonHistoryRepository(db),
+        ActivityRepository(db),
+        UserRepository(db),
+        ai_service=AIService(),
+    )
 
 
 @dashboard_bp.route("/summary", methods=["GET"])
 @require_auth
 def get_summary():
-    from flask import g
-
     try:
-        data = _service.get_summary(g.user_id)
+        data = _get_service().get_summary(g.user_id)
         return success_response(data)
     except Exception as e:
         logger.error("Failed to get summary: %s", e)
@@ -40,11 +55,11 @@ def get_summary():
 @dashboard_bp.route("/history", methods=["GET"])
 @require_auth
 def get_history():
-    from flask import g
-
     period = request.args.get("period", "last_7")
+    if period not in VALID_PERIODS:
+        return error_response("Invalid period", 422)
     try:
-        data = _service.get_history(g.user_id, period)
+        data = _get_service().get_history(g.user_id, period)
         return success_response(data)
     except Exception as e:
         logger.error("Failed to get history: %s", e)
@@ -54,10 +69,8 @@ def get_history():
 @dashboard_bp.route("/insights", methods=["GET"])
 @require_auth
 def get_insights():
-    from flask import g
-
     try:
-        data = _service.get_insights(g.user_id)
+        data = _get_service().get_insights(g.user_id)
         return success_response(data)
     except Exception as e:
         logger.error("Failed to get insights: %s", e)
@@ -67,10 +80,8 @@ def get_insights():
 @dashboard_bp.route("/trends", methods=["GET"])
 @require_auth
 def get_trends():
-    from flask import g
-
     try:
-        data = _service.get_trends(g.user_id)
+        data = _get_service().get_trends(g.user_id)
         return success_response(data)
     except Exception as e:
         logger.error("Failed to get trends: %s", e)

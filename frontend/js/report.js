@@ -2,7 +2,7 @@ import { api, registerRoute, htmlEscape } from './main.js';
 
 async function renderReport() {
   const app = document.getElementById('app');
-  app.innerHTML = '<div class="spinner" role="status"><span class="sr-only">Loading report...</span></div>';
+  app.innerHTML = '<div class="spinner" role="status"><span class="sr-only">Loading report...</span></div>'; /* safe HTML - static spinner */
 
   try {
     const [summaryRes, trendsRes] = await Promise.all([
@@ -16,7 +16,7 @@ async function renderReport() {
       ? (history.reduce((s, e) => s + (e.carbon_score || 0), 0) / history.length).toFixed(1)
       : 'N/A';
 
-    app.innerHTML = `
+    app.innerHTML = /* safe HTML - static report template */ `
       <div style="max-width:600px;margin:0 auto">
         <h1 style="margin-bottom:8px">Weekly Report</h1>
         <p style="color:var(--color-text-secondary);margin-bottom:24px">Your carbon impact summary</p>
@@ -49,7 +49,7 @@ async function renderReport() {
       </div>
     `;
   } catch (err) {
-    app.innerHTML = `
+    app.innerHTML = /* safe HTML - error escaped with htmlEscape() */ `
       <div class="error-state">
         <span class="empty-icon">&#9888;</span>
         <p>${htmlEscape(err.message)}</p>

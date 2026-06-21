@@ -1,9 +1,16 @@
+"""Token bucket rate limiter with per-IP and per-user scoping."""
+
+from __future__ import annotations
+
 import time
 import threading
 import logging
 from functools import wraps
+from typing import Any, Callable
 
 from flask import request, jsonify, current_app, g
+
+__all__ = ["rate_limiter", "RateLimiter", "TokenBucket"]
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +84,24 @@ class RateLimiter:
             return wrapper
 
         return decorator
+
+    def cleanup(self, max_age: float = 3600.0) -> None:
+        """Remove buckets that have not been accessed within *max_age* seconds.
+
+        Args:
+            max_age: Maximum allowed idle time in seconds (default 1 hour).
+        """
+        now = time.monotonic()
+        with self._lock:
+            stale = [
+                key
+                for key, bucket in self._buckets.items()
+                if now - bucket.last_refill > max_age
+            ]
+            for key in stale:
+                del self._buckets[key]
+            if stale:
+                logger.info("Cleaned %d stale rate-limit buckets", len(stale))
 
 
 rate_limiter = RateLimiter()

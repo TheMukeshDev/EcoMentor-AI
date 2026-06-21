@@ -160,3 +160,11 @@ def get_emission_lookup(message: str) -> dict[str, object] | None:
             }
 
     return None
+
+
+__all__ = [
+    "QueryIntent",
+    "classify_intent",
+    "get_faq_answer",
+    "get_emission_lookup",
+]

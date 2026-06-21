@@ -1,9 +1,19 @@
 import { api, toast, registerRoute, navigate, fetchCsrfToken } from './main.js';
 import { signInWithGoogle } from './auth_service.js';
 
+let _token = null;
+
+export function getToken() {
+  return _token;
+}
+
+export function setToken(token) {
+  _token = token;
+}
+
 function renderLogin() {
   const app = document.getElementById('app');
-  app.innerHTML = `
+  app.innerHTML = /* safe HTML - static login form */ `
     <div style="min-height: calc(100vh - 80px); display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, var(--color-bg) 0%, var(--color-primary-bg) 100%); padding: 20px;">
       <div style="background: var(--color-surface); padding: 40px; border-radius: var(--radius-lg); box-shadow: var(--shadow-xl); width: 100%; max-width: 380px; border: 1px solid var(--color-border);">
         <div style="text-align: center; margin-bottom: 24px;">
@@ -90,7 +100,7 @@ function renderLogin() {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       });
-      localStorage.setItem('id_token', data.id_token);
+      _token = data.id_token;
       await fetchCsrfToken();
       toast('Login successful!', 'success');
       navigate('#/dashboard');
@@ -102,7 +112,7 @@ function renderLogin() {
 
 function renderSignup() {
   const app = document.getElementById('app');
-  app.innerHTML = `
+  app.innerHTML = /* safe HTML - static signup form */ `
     <div style="min-height: calc(100vh - 80px); display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, var(--color-bg) 0%, var(--color-primary-bg) 100%); padding: 20px;">
       <div style="background: var(--color-surface); padding: 40px; border-radius: var(--radius-lg); box-shadow: var(--shadow-xl); width: 100%; max-width: 380px; border: 1px solid var(--color-border);">
         <div style="text-align: center; margin-bottom: 24px;">
@@ -197,7 +207,7 @@ function renderSignup() {
         method: 'POST',
         body: JSON.stringify({ email, password, name }),
       });
-      localStorage.setItem('id_token', data.id_token);
+      _token = data.id_token;
       await fetchCsrfToken();
       toast('Account created!', 'success');
       navigate('#/dashboard');

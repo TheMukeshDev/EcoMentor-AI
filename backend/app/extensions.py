@@ -1,15 +1,21 @@
+"""Firestore client initialization and Firebase Admin SDK setup.
+
+The `init_firestore` factory stores the client in ``app.extensions["firestore"]``
+for use by all repository classes.
+"""
+
+from __future__ import annotations
+
 from google.cloud import firestore
 from google.oauth2 import service_account
 
 import firebase_admin
 from firebase_admin import credentials
 
-db = None
+from flask import Flask
 
 
-def init_firestore(app):
-    global db
-
+def init_firestore(app: Flask) -> None:
     project = app.config["GCP_PROJECT_ID"]
     emulator = app.config.get("FIRESTORE_EMULATOR_HOST")
 
@@ -34,7 +40,7 @@ def init_firestore(app):
             }
             _credentials = service_account.Credentials.from_service_account_info(info)
             db = firestore.Client(project=project, credentials=_credentials)
-            
+
             try:
                 firebase_admin.get_app()
             except ValueError:

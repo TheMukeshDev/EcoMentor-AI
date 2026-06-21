@@ -11,6 +11,7 @@ const STATIC_ASSETS = [
   '/css/layout.css',
   '/css/components.css',
   '/css/dashboard.css',
+  '/css/premium-home.css',
   '/css/utilities.css',
   '/favicon.svg',
 ];

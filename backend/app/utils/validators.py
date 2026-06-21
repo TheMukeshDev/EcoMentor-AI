@@ -1,16 +1,23 @@
+"""Pydantic-based request body validation decorator for Flask routes."""
+
+from __future__ import annotations
+
 import logging
 from functools import wraps
+from typing import Any, Callable
 
 from flask import request, jsonify
 from pydantic import ValidationError as PydanticValidationError
 
+__all__ = ["validate_body"]
+
 logger = logging.getLogger(__name__)
 
 
-def validate_body(schema_cls):
-    def decorator(f):
+def validate_body(schema_cls: type) -> Callable:
+    def decorator(f: Callable) -> Callable:
         @wraps(f)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             data = request.get_json(silent=True) or {}
             try:
                 validated = schema_cls.model_validate(data)

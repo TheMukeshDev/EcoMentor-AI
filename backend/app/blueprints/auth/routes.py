@@ -1,6 +1,6 @@
 import logging
 
-from flask import Blueprint, request
+from flask import Blueprint, request, g
 
 from app.middleware.auth_middleware import require_auth
 from app.middleware.csrf import csrf_protect
@@ -13,17 +13,32 @@ from app.blueprints.auth.schemas import (
     LoginRequest,
     UpdateProfileRequest,
 )
-from app.extensions import db
 from app.repositories.user_repository import UserRepository
 from app.services.auth_service import AuthService
+
+"""Authentication blueprint routes for registration, login, and profile.
+
+Handles email/password and Google OAuth flows with CSRF protection,
+rate limiting, and audit logging for all auth events.
+"""
 
 logger = logging.getLogger(__name__)
 
 auth_bp = Blueprint("auth", __name__)
 
-_user_repo = UserRepository(db)
 
-_service = AuthService(_user_repo)
+def _get_db():
+    from flask import current_app
+
+    return current_app.extensions["firestore"]
+
+
+def _get_user_repo():
+    return UserRepository(_get_db())
+
+
+def _get_service():
+    return AuthService(_get_user_repo())
 
 
 @auth_bp.route("/register", methods=["POST"])
@@ -34,18 +49,12 @@ def register():
     data = request.validated_body
     ip = request.remote_addr or "unknown"
     try:
-        result = _service.register_user(data)
-        log_event(
-            "user_registered", user_id=result.get("profile", {}).get("uid"), ip=ip
-        )
-        return success_response(
-            {"id_token": result["id_token"], "profile": result["profile"]}, 201
-        )
+        result = _get_service().register_user(data)
+        log_event("user_registered", user_id=result.get("profile", {}).get("uid"), ip=ip)
+        return success_response({"id_token": result["id_token"], "profile": result["profile"]}, 201)
     except Exception as e:
         logger.error("Registration failed: %s", e)
-        log_event(
-            "registration_failed", ip=ip, details={"email": data.get("email", "")}
-        )
+        log_event("registration_failed", ip=ip, details={"email": data.get("email", "")})
         return error_response("Registration failed", 400)
 
 
@@ -57,11 +66,9 @@ def login():
     data = request.validated_body
     ip = request.remote_addr or "unknown"
     try:
-        result = _service.login_user(data["email"], data["password"])
+        result = _get_service().login_user(data["email"], data["password"])
         log_event("user_login", user_id=result.get("uid"), ip=ip)
-        return success_response(
-            {"id_token": result["id_token"], "profile": result["profile"]}
-        )
+        return success_response({"id_token": result["id_token"], "profile": result["profile"]})
     except Exception as e:
         logger.error("Login failed: %s", e)
         log_event("login_failed", ip=ip, details={"email": data.get("email", "")})
@@ -77,7 +84,7 @@ def google_auth():
         return error_response("Missing ID token", 400)
     ip = request.remote_addr or "unknown"
     try:
-        result = _service.google_auth(id_token)
+        result = _get_service().google_auth(id_token)
         log_event("google_auth", user_id=result.get("profile", {}).get("uid"), ip=ip)
         return success_response(result["profile"])
     except Exception as e:
@@ -89,10 +96,8 @@ def google_auth():
 @auth_bp.route("/profile", methods=["GET"])
 @require_auth
 def get_profile():
-    from flask import g
-
     try:
-        profile = _service.get_user_profile(g.user_id)
+        profile = _get_service().get_user_profile(g.user_id)
         return success_response(profile)
     except Exception as e:
         logger.error("Failed to get profile: %s", e)
@@ -104,11 +109,9 @@ def get_profile():
 @csrf_protect
 @validate_body(UpdateProfileRequest)
 def update_profile():
-    from flask import g
-
     data = request.validated_body
     try:
-        profile = _service.update_user_profile(g.user_id, data)
+        profile = _get_service().update_user_profile(g.user_id, data)
         return success_response(profile)
     except Exception as e:
         logger.error("Failed to update profile: %s", e)

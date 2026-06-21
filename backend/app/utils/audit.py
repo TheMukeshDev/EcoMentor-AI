@@ -1,6 +1,13 @@
+"""Structured audit event logging for security-relevant user actions."""
+
+from __future__ import annotations
+
+import json
 import logging
 from datetime import datetime, timezone
 from typing import Optional
+
+__all__ = ["log_event"]
 
 audit_logger = logging.getLogger("audit")
 
@@ -16,6 +23,6 @@ def log_event(
         event,
         user_id or "anonymous",
         ip or "unknown",
-        str(details or {}),
+        json.dumps(details or {}),
         datetime.now(timezone.utc).isoformat(),
     )

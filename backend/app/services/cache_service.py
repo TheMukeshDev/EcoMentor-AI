@@ -1,7 +1,15 @@
+"""Multi-tier caching service with local memory and Firestore persistence.
+
+Implements TTL-based expiry, LRU-like ordering via OrderedDict, and
+automatic cache limit enforcement for AI-generated content.
+"""
+
+from __future__ import annotations
+
 import os
 from datetime import datetime, timezone
 from collections import OrderedDict
-
+from typing import Any
 
 CACHE_TTL = {
     "recommendations": int(os.getenv("CACHE_TTL_RECOMMENDATIONS", "3600")),
@@ -14,15 +22,32 @@ MAX_LOCAL_ENTRIES = int(os.getenv("CACHE_MAX_LOCAL_ENTRIES", "1000"))
 
 
 class CacheService:
-    def __init__(self, ai_report_repository=None):
-        self._repo = ai_report_repository
-        self._local = OrderedDict()
+    def __init__(self, ai_report_repository=None) -> None:
+        """Initialize the cache service with an optional report repository.
 
-    def _enforce_limit(self):
+        Args:
+            ai_report_repository: Optional repository for Firestore persistence.
+        """
+        self._repo = ai_report_repository
+        self._local: OrderedDict = OrderedDict()
+
+    def _enforce_limit(self) -> None:
+        """Remove oldest entries when local cache exceeds the maximum limit."""
         while len(self._local) > MAX_LOCAL_ENTRIES:
             self._local.popitem(last=False)
 
-    def get(self, user_id, report_type):
+    def get(self, user_id: str, report_type: str) -> Any | None:
+        """Retrieve cached content for a user and report type.
+
+        Checks local cache first, then falls back to the repository.
+
+        Args:
+            user_id: Unique identifier for the user.
+            report_type: Type of cached report (e.g. 'recommendations').
+
+        Returns:
+            Cached content dictionary, or None if not found or expired.
+        """
         key = f"{user_id}:{report_type}"
         cached = self._local.get(key)
         if cached:
@@ -44,7 +69,14 @@ class CacheService:
                 return report.get("content")
         return None
 
-    def set(self, user_id, report_type, content):
+    def set(self, user_id: str, report_type: str, content: dict) -> None:
+        """Cache content for a user and report type with TTL-based expiry.
+
+        Args:
+            user_id: Unique identifier for the user.
+            report_type: Type of report being cached.
+            content: The content dictionary to cache.
+        """
         ttl = CACHE_TTL.get(report_type, 3600)
         now = datetime.now(timezone.utc)
         expires_at = datetime.fromtimestamp(now.timestamp() + ttl, tz=timezone.utc)
@@ -67,7 +99,13 @@ class CacheService:
         }
         self._enforce_limit()
 
-    def invalidate(self, user_id, report_type=None):
+    def invalidate(self, user_id: str, report_type: str | None = None) -> None:
+        """Invalidate cached entries for a user, optionally by report type.
+
+        Args:
+            user_id: Unique identifier for the user.
+            report_type: Specific report type to invalidate, or None for all.
+        """
         if report_type:
             key = f"{user_id}:{report_type}"
             self._local.pop(key, None)
@@ -77,5 +115,9 @@ class CacheService:
             for k in keys:
                 del self._local[k]
 
-    def clear(self):
+    def clear(self) -> None:
+        """Clear all entries from the local cache."""
         self._local.clear()
+
+
+__all__ = ["CacheService"]

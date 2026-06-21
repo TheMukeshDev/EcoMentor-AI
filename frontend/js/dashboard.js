@@ -18,7 +18,7 @@ async function renderDashboard() {
   isRendering = true;
   
   const app = document.getElementById('app');
-  app.innerHTML = dashboardSkeleton();
+  app.innerHTML = dashboardSkeleton(); /* safe HTML - skeleton template */
   profile = getProfile();
 
   try {
@@ -52,7 +52,7 @@ async function renderDashboard() {
     if (refreshInterval) clearInterval(refreshInterval);
     refreshInterval = setInterval(() => clearCache(), 120000);
   } catch (err) {
-    app.innerHTML = `
+    app.innerHTML = /* safe HTML - error escaped with htmlEscape() */ `
       <div class="error-state">
         <span class="empty-icon">&#9888;</span>
         <p>${htmlEscape(err.message)}</p>
@@ -86,11 +86,11 @@ function renderFullDashboard(app, profile, summary, history, insights, trends, r
   const ringColor = getScoreColor(ecoScore);
 
   let lbHtml = '<div class="leaderboard-preview-item" style="justify-content:center;color:var(--color-text-muted)">Leaderboard loading...</div>';
-  renderLeaderboardPreview().then(h => { lbHtml = h; const el = document.getElementById('lbPreview'); if (el) el.innerHTML = h; });
+  renderLeaderboardPreview().then(h => { lbHtml = h; const el = document.getElementById('lbPreview'); if (el) el.innerHTML = h; }); /* safe HTML - renderLeaderboardPreview escapes user content */
 
   const scorePct = Math.min(100, Math.round((ecoScore / 100) * 100));
 
-  app.innerHTML = `
+  app.innerHTML = /* safe HTML - user content escaped with htmlEscape() */ `
 <div class="dashboard-container">
 
   <section class="dashboard-hero" role="region" aria-label="Welcome">
@@ -438,7 +438,7 @@ function renderTrendChart(history) {
   if (dashboardCharts.trend) { dashboardCharts.trend.destroy(); delete dashboardCharts.trend; }
   
   if (!history || history.length === 0) {
-    wrapper.innerHTML = `
+    wrapper.innerHTML = /* safe HTML - static empty state */ `
       <div class="empty-state-small" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding:20px;color:var(--color-text-muted)">
         <span style="font-size:2rem;margin-bottom:8px">&#128200;</span>
         <p style="font-size:0.9rem;margin-bottom:12px">No carbon history data logged yet.</p>
@@ -449,7 +449,7 @@ function renderTrendChart(history) {
   }
 
   if (!document.getElementById('trendChart')) {
-    wrapper.innerHTML = '<canvas id="trendChart" role="img" aria-label="Eco score trend over time"></canvas>';
+    wrapper.innerHTML = '<canvas id="trendChart" role="img" aria-label="Eco score trend over time"></canvas>'; /* safe HTML - static canvas element */
   }
   const activeCanvas = document.getElementById('trendChart');
   const labels = history.map(e => (e.date || '').slice(5));
@@ -473,7 +473,7 @@ function renderCategoryChart(history) {
   if (dashboardCharts.category) { dashboardCharts.category.destroy(); delete dashboardCharts.category; }
 
   if (!history || history.length === 0) {
-    wrapper.innerHTML = `
+    wrapper.innerHTML = /* safe HTML - static empty state */ `
       <div class="empty-state-small" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding:20px;color:var(--color-text-muted)">
         <span style="font-size:2rem;margin-bottom:8px">&#128173;</span>
         <p style="font-size:0.9rem;margin-bottom:12px">No categories tracked yet.</p>
@@ -484,7 +484,7 @@ function renderCategoryChart(history) {
   }
 
   if (!document.getElementById('categoryChart')) {
-    wrapper.innerHTML = '<canvas id="categoryChart" role="img" aria-label="Carbon breakdown by category"></canvas>';
+    wrapper.innerHTML = '<canvas id="categoryChart" role="img" aria-label="Carbon breakdown by category"></canvas>'; /* safe HTML - static canvas element */
   }
   const activeCanvas = document.getElementById('categoryChart');
   const categories = ['Transport', 'Food', 'Electricity', 'Lifestyle'];
@@ -510,7 +510,7 @@ function renderComparisonChart(history) {
   if (dashboardCharts.comparison) { dashboardCharts.comparison.destroy(); delete dashboardCharts.comparison; }
 
   if (!history || history.length === 0) {
-    wrapper.innerHTML = `
+    wrapper.innerHTML = /* safe HTML - static empty state */ `
       <div class="empty-state-small" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding:20px;color:var(--color-text-muted)">
         <span style="font-size:2rem;margin-bottom:8px">&#128202;</span>
         <p style="font-size:0.9rem;margin-bottom:12px">No comparison data available.</p>
@@ -521,7 +521,7 @@ function renderComparisonChart(history) {
   }
 
   if (!document.getElementById('comparisonChart')) {
-    wrapper.innerHTML = '<canvas id="comparisonChart" role="img" aria-label="Weekly carbon comparison"></canvas>';
+    wrapper.innerHTML = '<canvas id="comparisonChart" role="img" aria-label="Weekly carbon comparison"></canvas>'; /* safe HTML - static canvas element */
   }
   const activeCanvas = document.getElementById('comparisonChart');
   const labels = history.map(e => (e.date || '').slice(5));

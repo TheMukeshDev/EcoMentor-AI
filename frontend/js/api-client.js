@@ -1,6 +1,7 @@
-import { getCurrentToken } from './auth_service.js';
+import { getToken, setToken } from './auth.js';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
+const REQUEST_TIMEOUT_MS = 15000;
 let csrfToken = '';
 let navigateFn = null;
 let updateNavFn = null;
@@ -18,29 +19,35 @@ export function setAuthHandlers(handlers) {
  * @throws {Error} If the request fails or is unauthorized.
  */
 export async function api(path, options = {}) {
-  const token = await getCurrentToken();
-  const headers = { 'Content-Type': 'application/json', ...options.headers };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  } else if (!path.includes('/public') && !path.includes('/auth')) {
-    throw new Error('Authentication required');
-  }
-  if (csrfToken && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(options.method || '')) {
-    headers['X-CSRF-Token'] = csrfToken;
-  }
-  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
-  if (!res.ok) {
-    if (res.status === 401) {
-      localStorage.removeItem('id_token');
-      csrfToken = '';
-      if (updateNavFn) updateNavFn();
-      if (navigateFn) navigateFn('#/login');
-      throw new Error('Session expired. Please log in again.');
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const token = getToken();
+    const headers = { 'Content-Type': 'application/json', ...options.headers };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    } else if (!path.includes('/public') && !path.includes('/auth')) {
+      throw new Error('Authentication required');
     }
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.message || `Request failed (${res.status})`);
+    if (csrfToken && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(options.method || '')) {
+      headers['X-CSRF-Token'] = csrfToken;
+    }
+    const res = await fetch(`${API_BASE}${path}`, { ...options, headers, signal: controller.signal });
+    if (!res.ok) {
+      if (res.status === 401) {
+        setToken(null);
+        csrfToken = '';
+        if (updateNavFn) updateNavFn();
+        if (navigateFn) navigateFn('#/login');
+        throw new Error('Session expired. Please log in again.');
+      }
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.message || `Request failed (${res.status})`);
+    }
+    return res.json();
+  } finally {
+    clearTimeout(timeoutId);
   }
-  return res.json();
 }
 
 export async function fetchCsrfToken() {

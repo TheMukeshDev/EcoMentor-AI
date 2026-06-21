@@ -1,17 +1,34 @@
+from __future__ import annotations
+
 import secrets
 import hmac
 import time
 import logging
 from functools import wraps
+from typing import Any, Callable
 
 from flask import request, jsonify, current_app, g
 
+"""CSRF token generation, validation, and route protection utilities.
+
+Uses HMAC-SHA256 signed tokens with timestamps and user identity
+binding to prevent cross-site request forgery attacks.
+"""
+
+__all__ = [
+    "generate_csrf_token",
+    "validate_csrf_token",
+    "csrf_protect",
+    "csrf_token_endpoint",
+]
+
 logger = logging.getLogger(__name__)
 
-CSRF_TOKEN_TTL = 3600
+CSRF_TOKEN_TTL: int = 3600
 
 
-def generate_csrf_token(user_id=None):
+def generate_csrf_token(user_id: str | None = None) -> str:
+    """Generate an HMAC-SHA256 CSRF token bound to the given user ID."""
     nonce = secrets.token_hex(32)
     timestamp = str(int(time.time()))
     secret = current_app.config.get("SECRET_KEY", "")
@@ -21,7 +38,8 @@ def generate_csrf_token(user_id=None):
     return f"{nonce}:{timestamp}:{uid_part}:{signature}"
 
 
-def validate_csrf_token(token, secret, user_id=None):
+def validate_csrf_token(token: str, secret: str, user_id: str | None = None) -> bool:
+    """Validate an HMAC-SHA256 CSRF token, checking signature, user binding, and TTL."""
     try:
         parts = token.split(":")
         if len(parts) != 4:
@@ -32,11 +50,11 @@ def validate_csrf_token(token, secret, user_id=None):
         ).hexdigest()
         if not hmac.compare_digest(signature, expected):
             return False
-        
+
         # Enforce that uid_part in the CSRF token matches the current authenticated user state
         if (uid_part or "") != (user_id or ""):
             return False
-            
+
         token_time = int(timestamp)
         if time.time() - token_time > CSRF_TOKEN_TTL:
             return False
@@ -45,9 +63,11 @@ def validate_csrf_token(token, secret, user_id=None):
         return False
 
 
-def csrf_protect(f):
+def csrf_protect(f: Callable[..., Any]) -> Callable[..., Any]:
+    """Decorator that enforces CSRF validation on mutating HTTP methods."""
+
     @wraps(f)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
         if request.method in ("GET", "HEAD", "OPTIONS", "TRACE"):
             return f(*args, **kwargs)
 
@@ -85,9 +105,10 @@ def csrf_protect(f):
     return wrapper
 
 
-def csrf_token_endpoint():
+def csrf_token_endpoint() -> Any:
+    """Return a fresh CSRF token for the current authenticated user."""
     uid = getattr(g, "user_id", None)
-    
+
     # If uid isn't already set but an Authorization header is provided, try to decode it
     if not uid:
         auth_header = request.headers.get("Authorization", "")
@@ -95,6 +116,7 @@ def csrf_token_endpoint():
             try:
                 id_token = auth_header.split(" ", 1)[1]
                 from firebase_admin import auth as firebase_auth
+
                 decoded = firebase_auth.verify_id_token(id_token)
                 uid = decoded["uid"]
             except Exception:

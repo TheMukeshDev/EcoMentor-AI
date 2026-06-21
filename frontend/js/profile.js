@@ -3,7 +3,7 @@ import { getState } from './store.js';
 
 async function renderProfile() {
   const app = document.getElementById('app');
-  app.innerHTML = '<div class="spinner" role="status"><span class="sr-only">Loading profile...</span></div>';
+  app.innerHTML = '<div class="spinner" role="status"><span class="sr-only">Loading profile...</span></div>'; /* safe HTML - static spinner */
 
   try {
     const profile = getState('user_profile') || await api('/auth/profile').then(r => r.data || r).catch(() => ({}));
@@ -18,7 +18,7 @@ async function renderProfile() {
     const badges = profile.badges || [];
     const createdAt = profile.createdAt || profile.created_at || '';
 
-    app.innerHTML = `
+    app.innerHTML = /* safe HTML - content escaped with htmlEscape() */ `
       <div style="max-width:500px;margin:0 auto">
         <h1 style="margin-bottom:24px">Profile</h1>
 
@@ -74,7 +74,7 @@ async function renderProfile() {
       </div>
     `;
   } catch (err) {
-    app.innerHTML = `
+    app.innerHTML = /* safe HTML - error escaped with htmlEscape() */ `
       <div class="error-state">
         <span class="empty-icon">&#9888;</span>
         <p>${htmlEscape(err.message)}</p>

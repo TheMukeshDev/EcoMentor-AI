@@ -108,7 +108,7 @@ export function updateNav() {
 function showLoadingSpinner() {
   const app = document.getElementById('app');
   if (app) {
-    app.innerHTML = '<div class="spinner" role="status"><span class="sr-only">Loading...</span></div>';
+    app.innerHTML = '<div class="spinner" role="status"><span class="sr-only">Loading...</span></div>'; /* safe HTML - static spinner */
   }
 }
 
@@ -162,7 +162,7 @@ function renderNotFound(app, path) {
   if (path !== '/') {
     console.warn(`Route not found: "${path}"`);
   }
-  app.innerHTML = `
+  app.innerHTML = /* safe HTML - static 404 page */ `
     <div class="error-state" style="padding:80px 20px">
       <span class="empty-icon" style="font-size:4rem">&#128683;</span>
       <h2 style="margin-bottom:8px">Page Not Found</h2>

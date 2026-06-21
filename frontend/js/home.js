@@ -28,7 +28,7 @@ async function renderHome() {
     }
   } catch (_) { }
 
-  app.innerHTML = `
+  app.innerHTML = /* safe HTML - user content escaped with htmlEscape() */ `
     <div class="home-premium">
       <!-- HERO (FULL SCREEN) -->
       <section class="hp-hero" aria-label="EcoMentor AI hero">

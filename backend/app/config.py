@@ -1,10 +1,20 @@
+"""Application configuration classes for development, testing, and production.
+
+Defines `BaseConfig` and environment-specific subclasses with
+Firestore, rate limiting, CORS, and secret key settings.
+"""
+
+from __future__ import annotations
+
 import os
+from typing import Any
+
 from dotenv import load_dotenv
 
 load_dotenv()
 
 
-def _parse_rate_limit(value, default):
+def _parse_rate_limit(value: str, default: tuple[int, int]) -> tuple[int, int]:
     parts = value.split(";")
     if len(parts) == 2:
         try:
@@ -28,12 +38,8 @@ class BaseConfig:
         "1",
         "yes",
     )
-    RATE_LIMIT_DEFAULT = _parse_rate_limit(
-        os.getenv("RATE_LIMIT_DEFAULT", "100;3600"), (100, 3600)
-    )
-    RATE_LIMIT_STRICT = _parse_rate_limit(
-        os.getenv("RATE_LIMIT_STRICT", "10;60"), (10, 60)
-    )
+    RATE_LIMIT_DEFAULT = _parse_rate_limit(os.getenv("RATE_LIMIT_DEFAULT", "100;3600"), (100, 3600))
+    RATE_LIMIT_STRICT = _parse_rate_limit(os.getenv("RATE_LIMIT_STRICT", "10;60"), (10, 60))
     RATE_LIMIT_GLOBAL_CAPACITY = int(os.getenv("RATE_LIMIT_GLOBAL_CAPACITY", "1000"))
     RATE_LIMIT_GLOBAL_REFILL = int(os.getenv("RATE_LIMIT_GLOBAL_REFILL", "10"))
 
@@ -46,7 +52,11 @@ class BaseConfig:
 class DevelopmentConfig(BaseConfig):
     DEBUG = True
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-key")
-    CORS_ORIGINS = ["http://localhost:5000", "http://localhost:8080"]
+    CORS_ORIGINS = [
+        "http://localhost:5000",
+        "http://localhost:8080",
+        "http://localhost:5173",
+    ]
 
 
 class TestingConfig(BaseConfig):

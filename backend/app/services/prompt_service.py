@@ -1,3 +1,11 @@
+"""Gemini prompt template builder for all AI coaching features.
+
+Constructs structured prompts enriched with user context, ensuring
+consistent JSON response format across all AI interactions.
+"""
+
+from __future__ import annotations
+
 import json
 import re
 from typing import Any
@@ -6,6 +14,15 @@ from app.services.carbon_service import estimate_gemini_carbon as estimate_carbo
 
 
 def sanitize_input(value: Any, max_length: int = 200) -> str:
+    """Sanitize a string value by truncating and removing special characters.
+
+    Args:
+        value: The input value to sanitize.
+        max_length: Maximum length of the returned string.
+
+    Returns:
+        Sanitized and trimmed string.
+    """
     if not isinstance(value, str):
         value = str(value)
     value = value[:max_length]
@@ -15,7 +32,15 @@ def sanitize_input(value: Any, max_length: int = 200) -> str:
 
 
 class PromptService:
-    def recommendations(self, data):
+    def recommendations(self, data: dict) -> str:
+        """Build a prompt for generating personalized carbon reduction recommendations.
+
+        Args:
+            data: User activity data including scores, categories, and level.
+
+        Returns:
+            Formatted prompt string for the Gemini API.
+        """
         trend = data.get("score_trend", "stable")
         best = sanitize_input(data.get("best_category", "transport"))
         worst = sanitize_input(data.get("worst_category", "transport"))
@@ -53,7 +78,15 @@ Rules:
 }}"""
         return prompt
 
-    def weekly_report(self, user_context):
+    def weekly_report(self, user_context: dict) -> str:
+        """Build a prompt for generating a weekly carbon report.
+
+        Args:
+            user_context: User data including level, streak, and weekly averages.
+
+        Returns:
+            Formatted prompt string for the Gemini API.
+        """
         weekly_data = json.dumps(user_context.get("weekly_data", {}), default=str)
         prompt = f"""You are an AI sustainability analyst. Generate a weekly carbon report as JSON.
 
@@ -79,7 +112,15 @@ Return ONLY valid JSON with these exact keys:
 Keep each field under 120 characters. Focus on data-driven insights."""
         return prompt
 
-    def eco_personality(self, user_context):
+    def eco_personality(self, user_context: dict) -> str:
+        """Build a prompt for determining the user's eco-personality.
+
+        Args:
+            user_context: User data including level, streak, and weekly breakdown.
+
+        Returns:
+            Formatted prompt string for the Gemini API.
+        """
         weekly_data = json.dumps(user_context.get("weekly_data", {}), default=str)
         prompt = f"""You are an AI sustainability analyst. Generate an eco-personality profile as JSON.
 
@@ -102,7 +143,15 @@ Return ONLY valid JSON with these exact keys:
 Keep each field under 80 characters."""
         return prompt
 
-    def daily_mission(self, user_context):
+    def daily_mission(self, user_context: dict) -> str:
+        """Build a prompt for generating a daily sustainability challenge.
+
+        Args:
+            user_context: User data including level for difficulty calibration.
+
+        Returns:
+            Formatted prompt string for the Gemini API.
+        """
         level = sanitize_input(user_context.get("level", "Beginner"))
         prompt = f"""You are an AI gamification designer. Generate ONE daily sustainability challenge for a {level} level college student.
 
@@ -120,7 +169,19 @@ Rules:
 - challenge field under 100 characters"""
         return prompt
 
-    def chat_response(self, user_message, user_context, conversation_history=None):
+    def chat_response(
+        self, user_message: str, user_context: dict, conversation_history: list | None = None
+    ) -> str:
+        """Build a prompt for generating a conversational chat response.
+
+        Args:
+            user_message: The user's chat message.
+            user_context: User data for contextualizing the response.
+            conversation_history: Recent conversation messages for continuity.
+
+        Returns:
+            Formatted prompt string for the Gemini API.
+        """
         history_text = ""
         if conversation_history:
             history_lines = []
@@ -140,7 +201,9 @@ Rules:
         streak = user_context.get("streak", 0)
         trend_note = ""
         if trend == "improving":
-            trend_note = "The user is improving — keep them motivated and reinforce their good habits."
+            trend_note = (
+                "The user is improving — keep them motivated and reinforce their good habits."
+            )
         elif trend == "declining":
             trend_note = "The user's scores have been declining — be encouraging and suggest small, easy wins."
 
@@ -179,7 +242,19 @@ Return ONLY a JSON object with these exact keys:
 
         return prompt
 
-    def whats_if_analysis(self, current_data, scenario_changes, user_context):
+    def whats_if_analysis(
+        self, current_data: dict, scenario_changes: dict, user_context: dict
+    ) -> str:
+        """Build a prompt for what-if scenario analysis.
+
+        Args:
+            current_data: Current activity data as baseline.
+            scenario_changes: Proposed lifestyle changes to evaluate.
+            user_context: User context data for personalization.
+
+        Returns:
+            Formatted prompt string for the Gemini API.
+        """
         carbon_estimate = estimate_carbon(current_data)
         prompt = f"""You are an AI sustainability analyst. Analyze the impact of a lifestyle change on carbon footprint.
 
@@ -207,7 +282,17 @@ Return ONLY valid JSON with these exact keys:
 Use the baseline carbon estimate ({carbon_estimate} kg CO2e) to calculate realistic savings. Be conservative. Focus on realistic outcomes."""
         return prompt
 
-    def feedback_prompt(self, user_message, feedback_type, user_context):
+    def feedback_prompt(self, user_message: str, feedback_type: str, user_context: dict) -> str:
+        """Build a prompt for processing user feedback on recommendations.
+
+        Args:
+            user_message: The user's feedback message.
+            feedback_type: Category or type of feedback.
+            user_context: User context data for personalization.
+
+        Returns:
+            Formatted prompt string for the Gemini API.
+        """
         prompt = f"""You are an AI sustainability coach. A user has provided feedback on a recommendation.
 
 Feedback type: {sanitize_input(feedback_type, 50)}
@@ -225,7 +310,17 @@ Return ONLY valid JSON:
 Keep each field under 120 characters."""
         return prompt
 
-    def carbon_savings_forecast(self, weekly_avg, level, tips):
+    def carbon_savings_forecast(self, weekly_avg: float, level: str, tips: list) -> str:
+        """Build a prompt for generating carbon savings projections.
+
+        Args:
+            weekly_avg: Current weekly carbon footprint in kg CO2e.
+            level: User's gamification level.
+            tips: List of recommendation tips to base projections on.
+
+        Returns:
+            Formatted prompt string for the Gemini API.
+        """
         prompt = f"""You are an AI sustainability forecaster. Generate a carbon savings projection.
 
 Current weekly footprint: {weekly_avg} kg CO2e
@@ -249,3 +344,5 @@ Rules:
 """
         return prompt
 
+
+__all__ = ["PromptService", "sanitize_input"]

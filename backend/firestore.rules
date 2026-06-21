@@ -45,9 +45,11 @@ service cloud.firestore {
         && request.resource.data.keys().hasAll(['uid', 'transport', 'distance', 'food_type'])
         && isValidString(request.resource.data.transport, 50)
         && isValidNumber(request.resource.data.distance)
-        && request.resource.data.distance >= 0;
+        && request.resource.data.distance >= 0
+        && request.resource.data.distance <= 10000;
       allow update: if isAuthenticated()
-        && resource.data.uid == request.auth.uid;
+        && resource.data.uid == request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['uid']);
       allow delete: if isAuthenticated()
         && resource.data.uid == request.auth.uid;
     }
@@ -102,6 +104,8 @@ service cloud.firestore {
         && resource.data.uid == request.auth.uid;
       allow create: if isAuthenticated()
         && request.resource.data.uid == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.uid == request.auth.uid;
       allow delete: if isAuthenticated()
         && resource.data.uid == request.auth.uid;
     }

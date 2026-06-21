@@ -40,11 +40,9 @@ def request_ctx(app):
 
 
 @pytest.fixture
-def mock_db(mocker):
-    from app.extensions import db
-
+def mock_db(app, mocker):
     _mock = mocker.MagicMock()
-    mocker.patch.object(db, "collection", return_value=_mock)
+    app.extensions["firestore"] = _mock
     return _mock
 
 
@@ -129,9 +127,7 @@ def dashboard_service_with_ai(
 
 
 @pytest.fixture
-def activity_service(
-    mock_activity_repo, mock_carbon_history_repo, mock_user_repo, mock_ai_service
-):
+def activity_service(mock_activity_repo, mock_carbon_history_repo, mock_user_repo, mock_ai_service):
     from app.services.activity_service import ActivityService
 
     return ActivityService(
